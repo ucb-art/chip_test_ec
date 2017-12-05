@@ -1,0 +1,71 @@
+fpga:
+  order: ['module', 'class', 'port', 'baud_rate', 'timeout', 'flow_ctrl']
+  module:
+    type: 'str'
+    default: 'chip_test_ec.backend.fpga.base'
+  class:
+    type: str
+    default: 'FPGASerial'
+  port:
+    type: 'str'
+    default: 'COM3'
+  baud_rate:
+    type: 'int'
+    default: 500000
+    min: 0
+    max: 1000000
+  timeout:
+    type: 'float'
+    default: 10.0
+    min: 0.0
+    max: 10000.0
+    step: 0.01
+  flow_ctrl:
+    type: select
+    default: 'hardware'
+    values: ['hardware', 'software']
+
+scan:
+  order: ['fname', 'pre_bytes', 'post_bytes']
+  fname:
+    type: 'file'
+    default: ''
+  pre_bytes:
+    type: 'int'
+    default: 0
+    min: 0
+    max: 10000
+  post_bytes:
+    type: 'int'
+    default: 0
+    min: 0
+    max: 10000
+
+gpib:
+  order: ['oscope']
+  oscope:
+    order: ['module', 'class', 'bid', 'pad', 'timeout_ms', 'use_visa']
+    module:
+      type: 'str'
+      default: 'chip_test_ec.backend.gpib.oscope'
+    class:
+      type: 'str'
+      default: 'AG54855A'
+    bid:
+      type: 'int'
+      default: 1
+      min: 0
+      max: 99
+    pad:
+      type: 'int'
+      default: 1
+      min: 0
+      max: 99
+    timeout_ms:
+      type: 'int'
+      default: 10000
+      min: 0
+      max: 100000
+    use_via:
+      type: 'bool'
+      default: True

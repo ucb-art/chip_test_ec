@@ -20,18 +20,18 @@ class Scan(LoggingBase):
 
     Parameters
     ----------
-    fname : str
-        name of the scan chain file.
     fpga : Optional[FPGABase]
         the fpga used to read and write the scan chain.  If None, this scan
         chain will run in fake scan mode.
+    fname : str
+        name of the scan chain file.
     pre_bytes : int
         number of extra prefix bytes read from FPGA.
     post_bytes : int
         number of extra suffix bytes read from FPGA.
     """
 
-    def __init__(self, fname: str, fpga: Optional[FPGABase], pre_bytes: int=0, post_bytes: int=0) -> None:
+    def __init__(self, fpga: Optional[FPGABase], fname: str, pre_bytes: int=0, post_bytes: int=0) -> None:
         LoggingBase.__init__(self)
 
         self._fpga = fpga
