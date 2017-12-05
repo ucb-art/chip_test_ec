@@ -5,50 +5,16 @@
 
 import os
 
-import PyQt4.QtCore as QtCore
-import PyQt4.QtGui as QtGui
-from PyQt4.QtCore import pyqtSlot
+from PyQt5 import QtWidgets, QtCore, QtGui
 
-from .ScanItemModel import ScanItemModel
-from .. import util
+from .models import ScanItemModel, ScanSortFilterProxyModel
+from ..base.forms import make_form
 
 
-class ScanSortFilterProxyModel(QtGui.QSortFilterProxyModel):
-    """A subclass of QSortFilterProxyModel that works on
-    full scan bus name.
-    """
-    def __init__(self, parent=None):
-        super(ScanSortFilterProxyModel, self).__init__(parent)
+class ScanDelegate(QtWidgets.QStyledItemDelegate):
+    """A subclass of QStyledItemDelegate that creates spin boxes for editing scan buses
 
-    def filterAcceptsRow(self, row, parent):
-        source = self.sourceModel()
-        cur_idx = source.index(row, self.filterKeyColumn(), parent)
-        if not cur_idx.isValid():
-            return False
-        cur_name = source.data(cur_idx, QtCore.Qt.DisplayRole)
-        idx = cur_idx.parent()
-        while idx is not None and idx.isValid():
-            cur_name = source.data(idx, QtCore.Qt.DisplayRole) + '.' + cur_name
-            idx = idx.parent()
-        if self.filterRegExp().indexIn(cur_name) >= 0:
-            return True
-        max_row = source.rowCount(cur_idx)
-        for r in xrange(max_row):
-            if self.filterAcceptsRow(r, cur_idx):
-                return True
-        return False
-
-    @pyqtSlot(str)
-    def update_filter(self, text):
-        new_exp = QtCore.QRegExp(text)
-        new_exp.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
-        self.setFilterRegExp(new_exp)
-
-
-class ScanDelegate(QtGui.QStyledItemDelegate):
-    """A subclass of QStyledItemDelegate that creates spin boxes
-    for editing scan buses, with smart max/min values and adjustable
-    step size.
+    This delegate create spin boxes with smart max/min values and adjustable step size.
     """
     def __init__(self, parent=None):
         super(ScanDelegate, self).__init__(parent)
@@ -58,21 +24,23 @@ class ScanDelegate(QtGui.QStyledItemDelegate):
         nbits = index.data(QtCore.Qt.UserRole)
         nmax = 2**nbits - 1
 
-        editor = QtGui.QSpinBox(parent)
+        editor = QtWidgets.QSpinBox(parent)
         editor.setFrame(False)
         editor.setMinimum(0)
         editor.setMaximum(nmax)
         editor.setSingleStep(min(self.step, nmax))
 
-        @pyqtSlot()
+        # noinspection PyUnusedLocal
+        @QtCore.pyqtSlot()
         def modify(value):
             self.setModelData(editor, index.model(), index)
 
+        # noinspection PyUnresolvedReferences
         editor.valueChanged[int].connect(modify)
         return editor
 
-    @pyqtSlot(int)
-    def setStepSize(self, step):
+    @QtCore.pyqtSlot(int)
+    def set_step_size(self, step):
         """Set the step size of the QSpinBox
 
         Parameters
@@ -98,15 +66,19 @@ class ScanDelegate(QtGui.QStyledItemDelegate):
         editor.setGeometry(option.rect)
 
 
-class ScanFrame(QtGui.QFrame):
-    def __init__(self, scan_ctrl, font_size=11, max_step=8192):
-        """Create a new ScanFrame to display the given scan data.
+class ScanFrame(QtWidgets.QFrame):
+    """A Frame that displays the scan chain, and allows for user editing.
 
-        Parameters
-        ----------
-        scan_ctrl : scan.Scan
-            the scan chain object.
-        """
+    Parameters
+    ----------
+    scan_ctrl : chip_test_ec.backend.scan.core.Scan
+        the scan chain object.
+    font_size : int
+        the font size for this frame.
+    max_step : int
+        maximum scan bus spinbox step size.
+    """
+    def __init__(self, scan_ctrl, font_size=11, max_step=8192):
         super(ScanFrame, self).__init__()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         model = ScanItemModel(scan_ctrl)
@@ -122,42 +94,47 @@ class ScanFrame(QtGui.QFrame):
         proxy = ScanSortFilterProxyModel()
         proxy.setSourceModel(model)
         proxy.setFilterKeyColumn(0)
-        filter_text = QtGui.QLineEdit()
+        filter_text = QtWidgets.QLineEdit()
+        # noinspection PyUnresolvedReferences
         filter_text.textChanged[str].connect(proxy.update_filter)
-        top_frame = util.make_form(['Filter: '], [filter_text])
+        top_frame = make_form(['Filter: '], [filter_text])
 
         # configure tree view
-        self.lay = QtGui.QVBoxLayout()
+        self.lay = QtWidgets.QVBoxLayout()
         self.setLayout(self.lay)
-        self.view = QtGui.QTreeView()
+        self.view = QtWidgets.QTreeView()
         self.view.setItemDelegate(self.delegate)
         self.view.setSortingEnabled(True)
         self.view.header().setSortIndicatorShown(True)
         self.view.header().setSortIndicator(0, QtCore.Qt.AscendingOrder)
         self.view.header().setClickable(True)
-        self.view.header().setResizeMode(QtGui.QHeaderView.ResizeToContents)
+        self.view.header().setResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         self.view.setModel(proxy)
 
         # configure step box and sync checkbox
-        checkbox = QtGui.QCheckBox("Disable sync")
+        checkbox = QtWidgets.QCheckBox("Disable sync")
+        # noinspection PyUnresolvedReferences
         checkbox.stateChanged[int].connect(model.setSyncFlag)
-        self.stepbox = QtGui.QSpinBox()
+        self.stepbox = QtWidgets.QSpinBox()
         self.stepbox.setMaximum(max_step)
         self.stepbox.setValue(1)
-        self.stepbox.valueChanged[int].connect(self.delegate.setStepSize)
-        bot_frame = QtGui.QFrame()
-        bot_lay = QtGui.QHBoxLayout()
+        # noinspection PyUnresolvedReferences
+        self.stepbox.valueChanged[int].connect(self.delegate.set_step_size)
+        bot_frame = QtWidgets.QFrame()
+        bot_lay = QtWidgets.QHBoxLayout()
         bot_frame.setLayout(bot_lay)
         bot_lay.addWidget(checkbox)
-        bot_lay.addWidget(util.make_form(['Step Size: '], [self.stepbox]))
+        bot_lay.addWidget(make_form(['Step Size: '], [self.stepbox]))
 
-        save_button = QtGui.QPushButton('Save To File...')
+        save_button = QtWidgets.QPushButton('Save To File...')
+        # noinspection PyUnresolvedReferences
         save_button.clicked.connect(self.save_to_file)
-        set_button = QtGui.QPushButton('Set From File')
+        set_button = QtWidgets.QPushButton('Set From File')
+        # noinspection PyUnresolvedReferences
         set_button.clicked.connect(self.set_from_file)
 
-        temp1 = QtGui.QFrame()
-        temp2 = QtGui.QHBoxLayout()
+        temp1 = QtWidgets.QFrame()
+        temp2 = QtWidgets.QHBoxLayout()
         temp1.setLayout(temp2)
         temp2.addWidget(save_button)
         temp2.addWidget(set_button)
@@ -168,16 +145,16 @@ class ScanFrame(QtGui.QFrame):
         self.lay.addWidget(bot_frame)
         self.lay.addWidget(temp1)
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def set_from_file(self):
         cur_dir = os.getcwd()
-        fname = QtGui.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
+        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
         if fname:
-            self.model.setFromFile(fname)
+            self.model.set_from_file(fname)
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def save_to_file(self):
         cur_dir = os.getcwd()
-        fname = QtGui.QFileDialog.getSaveFileName(self, 'Select File', cur_dir)
+        fname = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir)
         if fname:
-            self.model.saveToFile(fname)
+            self.model.save_to_file(fname)

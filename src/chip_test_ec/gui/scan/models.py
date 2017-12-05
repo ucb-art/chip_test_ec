@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 
-"""This module defines ScanItemModel, a subclass of QAbstractItemModel used for
-displaying scan chain hierarchy."""
+"""This module defines various model classes for displaying scan chain hierarchy."""
 
-import PyQt4.QtCore as QtCore
-import PyQt4.QtGui as QtGui
-from PyQt4.QtCore import pyqtSignal, pyqtSlot
+from PyQt5 import QtCore, QtGui
 
 
 class ScanItem(QtGui.QStandardItem):
-    """A subclass of QStandardItem that represents a scan value field, which has an integer edit role
-    and keep tracks of how many bits this scan bit have in UserRole.
+    """A subclass of QStandardItem that represents a scan value field.
+
+    This item has an integer edit role and keep tracks of how many bits this scan bit have in UserRole.
     """
     def __init__(self, value, nbits):
         super(ScanItem, self).__init__(str(value))
@@ -20,6 +18,7 @@ class ScanItem(QtGui.QStandardItem):
     def data(self, role=None, *args, **kwargs):
         if role == QtCore.Qt.EditRole:
             return self.value
+        # noinspection PyArgumentList
         return super(ScanItem, self).data(role, *args, **kwargs)
 
     def setData(self, val, role=None, *args, **kwargs):
@@ -28,23 +27,24 @@ class ScanItem(QtGui.QStandardItem):
             self.setText(str(val))
             self.emitDataChanged()
         else:
+            # noinspection PyArgumentList
             super(ScanItem, self).setData(val, role, *args, **kwargs)
 
 
 class ScanItemModel(QtGui.QStandardItemModel):
-    """This model overwrites QStandardItemModel such that setting scan values
-    will update the scan chain.
+    """The model class representing an editable scan chain.
 
+    This model overwrites QStandardItemModel such that setting scan values will update the scan chain.
     """
 
-    scanChainChanged = pyqtSignal()
+    scanChainChanged = QtCore.pyqtSignal()
 
     def __init__(self, ctrl):
         """Create a new ScanItemModel based on the given scan control object.
 
         Parameters
         ----------
-        ctrl : scan.Scan
+        ctrl : chip_test_ec.backend.scan.core.Scan
             the scan chain data structure object.
         """
         super(ScanItemModel, self).__init__()
@@ -53,9 +53,10 @@ class ScanItemModel(QtGui.QStandardItemModel):
         self.sync_flag = True
         self.setHorizontalHeaderLabels(['Scan Name', 'Value'])
         ctrl.add_listener(self)
+        # noinspection PyUnresolvedReferences
         self.scanChainChanged.connect(self._update)
 
-    def setSyncFlag(self, state):
+    def set_sync_flag(self, state: int):
         """Change whether the GUI display syncs to scan chain in real time.
 
         Parameters
@@ -68,11 +69,6 @@ class ScanItemModel(QtGui.QStandardItemModel):
         else:
             self.sync_flag = True
             self._updateScanFromModel()
-
-    def scanChanged(self):
-        """This method is called whenever the scan chain changed.
-        """
-        self.scanChainChanged.emit()
 
     def _build_model(self):
         """Builds this model from the Scan instance.
@@ -89,7 +85,7 @@ class ScanItemModel(QtGui.QStandardItemModel):
             defval = self.ctrl.get_value(name)
             parts = name.split('.')
             parent = self.invisibleRootItem()
-            for idx in xrange(len(parts)):
+            for idx in range(len(parts)):
                 item_name = '.'.join(parts[:idx+1])
                 if item_name in item_dict:
                     parent = item_dict[item_name]
@@ -107,7 +103,7 @@ class ScanItemModel(QtGui.QStandardItemModel):
 
         return item_dict
 
-    def _updateScanFromModel(self):
+    def _update_scan_from_model(self):
         for name, old_val in self.ctrl.value.iteritems():
             item = self.item_dict[name]
             idx = self.indexFromItem(item)
@@ -117,11 +113,10 @@ class ScanItemModel(QtGui.QStandardItemModel):
                 self.ctrl.set(name, new_val)
         self.ctrl.write_twice()
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def _update(self):
         """Update this model to have the same content as the scan control.
         """
-        # print "updating"
         for name, val in self.ctrl.value.iteritems():
             item = self.item_dict[name]
             idx = self.indexFromItem(item)
@@ -148,8 +143,39 @@ class ScanItemModel(QtGui.QStandardItemModel):
             else:
                 return super(ScanItemModel, self).setData(index, value, role)
 
-    def setFromFile(self, fname):
+    def set_from_file(self, fname):
         self.ctrl.set_from_file(fname)
 
-    def saveToFile(self, fname):
+    def save_to_file(self, fname):
         self.ctrl.save_to_file(fname)
+
+
+class ScanSortFilterProxyModel(QtCore.QSortFilterProxyModel):
+    """A subclass of QSortFilterProxyModel that works on full scan bus name.
+    """
+    def __init__(self, parent=None):
+        super(ScanSortFilterProxyModel, self).__init__(parent)
+
+    def filterAcceptsRow(self, row, parent):
+        source = self.sourceModel()
+        cur_idx = source.index(row, self.filterKeyColumn(), parent)
+        if not cur_idx.isValid():
+            return False
+        cur_name = source.data(cur_idx, QtCore.Qt.DisplayRole)
+        idx = cur_idx.parent()
+        while idx is not None and idx.isValid():
+            cur_name = source.data(idx, QtCore.Qt.DisplayRole) + '.' + cur_name
+            idx = idx.parent()
+        if self.filterRegExp().indexIn(cur_name) >= 0:
+            return True
+        max_row = source.rowCount(cur_idx)
+        for r in range(max_row):
+            if self.filterAcceptsRow(r, cur_idx):
+                return True
+        return False
+
+    @QtCore.pyqtSlot(str)
+    def update_filter(self, text):
+        new_exp = QtCore.QRegExp(text)
+        new_exp.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
+        self.setFilterRegExp(new_exp)
