@@ -3,10 +3,13 @@
 """This module defines various custom fields, which are GUI components that retrieve one value from the user.
 """
 
+from typing import Optional
+
 import os
 import math
+from collections import deque
 
-from PyQt5 import QtWidgets
+from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSlot
 
 
@@ -115,3 +118,48 @@ class MetricSpinBox(QtWidgets.QDoubleSpinBox):
 
     def setValue(self, val: float) -> None:
         super(MetricSpinBox, self).setValue(val / self.scale)
+
+
+class LineEditHist(QtWidgets.QLineEdit):
+    """A subclass of QLineEdit that keeps track of histories.
+
+    Parameters
+    ----------
+    hist_queue : Optional[deque]
+        the history deque instance.  If None, create a new one.
+    num_hist : int
+        number of history to keep track of.
+    """
+    def __init__(self, hist_queue: Optional[deque]=None, num_hist: int=200):
+        super(LineEditHist, self).__init__()
+        if hist_queue is None:
+            self.histories = deque(maxlen=num_hist)
+        else:
+            self.histories = hist_queue
+        self.cur_idx = 0
+        # noinspection PyUnresolvedReferences
+        self.returnPressed.connect(self.add_history)
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Up:
+            if self.cur_idx - 1 >= 0:
+                self.cur_idx -= 1
+                self.setText(self.histories[self.cur_idx])
+                self.selectAll()
+        elif event.key() == QtCore.Qt.Key_Down:
+            if self.cur_idx + 1 <= len(self.histories):
+                self.cur_idx += 1
+                if self.cur_idx == len(self.histories):
+                    ntext = ''
+                else:
+                    ntext = self.histories[self.cur_idx]
+                self.setText(ntext)
+                self.selectAll()
+        else:
+            super(LineEditHist, self).keyPressEvent(event)
+
+    @pyqtSlot()
+    def add_history(self):
+        cmd = self.text()
+        self.histories.append(cmd)
+        self.cur_idx = len(self.histories)
