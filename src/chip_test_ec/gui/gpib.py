@@ -4,8 +4,7 @@
 
 from typing import TYPE_CHECKING, Sequence
 
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import pyqtSlot
+from PyQt5 import QtWidgets, QtCore
 
 from .base.fields import LineEditHist
 
@@ -52,7 +51,7 @@ class GPIBFrame(QtWidgets.QFrame):
         lay.addRow('Query Cmd: ', self.q_cmd)
         lay.addRow('Write Cmd: ', self.w_cmd)
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def send_query(self):
         dev = self.dev_list[self.dev_sel.currentIndex()]
         cmd = self.q_cmd.text()
@@ -63,7 +62,7 @@ class GPIBFrame(QtWidgets.QFrame):
         self.logger.println(msg)
         self.q_cmd.selectAll()
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def send_write(self):
         dev = self.dev_list[self.dev_sel.currentIndex()]
         cmd = self.w_cmd.text()

@@ -5,8 +5,7 @@
 
 from typing import Callable, Dict, Any
 
-from PyQt5 import QtWidgets, QtGui
-from PyQt5.QtCore import pyqtSlot
+from PyQt5 import QtWidgets, QtGui, QtCore
 
 from .forms import TitledForm
 from .displays import LogWidget
@@ -106,11 +105,11 @@ class FuncDialog(QtWidgets.QDialog):
         lay.addWidget(bot_frame)
         lay.addWidget(self.logger)
 
-    @pyqtSlot(str)
+    @QtCore.pyqtSlot(str)
     def update_msg(self, msg: str):
         self.logger.println(msg)
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def start_task(self):
         if self.thread is None:
             self.ok_button.setEnabled(False)
@@ -124,11 +123,11 @@ class FuncDialog(QtWidgets.QDialog):
             self.thread.update[str].connect(self.update_msg)
             self.thread.start()
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def abort_task(self):
         self.thread.stop = True
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def finish_task(self):
         self.ok_button.setEnabled(True)
         self.cancel_button.setEnabled(False)

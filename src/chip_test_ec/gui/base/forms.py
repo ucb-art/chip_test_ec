@@ -8,8 +8,7 @@ from typing import Sequence, Dict, Any
 import os
 
 import yaml
-from PyQt5 import QtGui, QtWidgets
-from PyQt5.QtCore import pyqtSlot, pyqtSignal
+from PyQt5 import QtGui, QtWidgets, QtCore
 
 from .fields import FileField, MetricSpinBox
 
@@ -56,7 +55,7 @@ class TitledForm(QtWidgets.QGroupBox):
         True to show title.
     """
 
-    committed = pyqtSignal()
+    committed = QtCore.pyqtSignal()
 
     def __init__(self, name: str, conf_path: str, specs: Dict[str, Any],
                  font_size: int=11, buttons: bool=False, show_title: bool=True):
@@ -171,12 +170,12 @@ class TitledForm(QtWidgets.QGroupBox):
 
         return self.values
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def submit(self) -> None:
         # noinspection PyUnresolvedReferences
         self.committed.emit()
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def revert(self) -> None:
         for par, comp in zip(self.params, self.components):
             if isinstance(comp, QtWidgets.QLineEdit):

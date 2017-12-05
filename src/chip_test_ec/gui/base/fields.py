@@ -10,7 +10,6 @@ import math
 from collections import deque
 
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtCore import pyqtSlot
 
 
 class FileField(QtWidgets.QFrame):
@@ -40,7 +39,7 @@ class FileField(QtWidgets.QFrame):
         self.lay.setStretch(0, 1)
         self.lay.setStretch(1, 0)
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def _open_browser(self) -> None:
         cur_file = self.edit.text()
         if os.path.exists(cur_file):
@@ -158,7 +157,7 @@ class LineEditHist(QtWidgets.QLineEdit):
         else:
             super(LineEditHist, self).keyPressEvent(event)
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def add_history(self):
         cmd = self.text()
         self.histories.append(cmd)

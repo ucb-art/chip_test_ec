@@ -2,8 +2,7 @@
 
 """This module defines various GUI components used to display information."""
 
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import pyqtSlot
+from PyQt5 import QtWidgets, QtCore
 
 
 class LogWidget(QtWidgets.QFrame):
@@ -23,7 +22,7 @@ class LogWidget(QtWidgets.QFrame):
         lay.addWidget(self.logger)
         lay.addWidget(button)
 
-    @pyqtSlot()
+    @QtCore.pyqtSlot()
     def clear_log(self):
         self.logger.setPlainText('')
 
