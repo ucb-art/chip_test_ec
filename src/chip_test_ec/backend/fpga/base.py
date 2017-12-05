@@ -11,36 +11,20 @@ It can be used to control Xilinx GTX
 from typing import Sequence, List
 
 import abc
-import logging
 import serial
 import struct
 
+from ...base import LoggingBase
 
-class FPGABase(abc.ABC):
+
+class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
     """The base class that represents all FPGAs.
 
     This class defines methods that all FPGA controller have to implement.
 
     """
     def __init__(self) -> None:
-        self._logger = logging.getLogger(self.get_full_qualified_name())
-
-    @classmethod
-    def get_full_qualified_name(cls) -> str:
-        """Returns the fully qualified class name of this class."""
-        return cls.__module__ + '.' + cls.__name__
-
-    def log_msg(self, msg: str, level: int=logging.DEBUG) -> None:
-        """Logs the given message.
-
-        Parameters
-        ----------
-        msg : str
-            the message to log.
-        level : int
-            the logging level.
-        """
-        self._logger.log(level=level, msg=msg)
+        LoggingBase.__init__(self)
 
     @abc.abstractmethod
     def write_int(self, num: int) -> None:

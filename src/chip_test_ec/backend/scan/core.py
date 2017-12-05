@@ -9,11 +9,13 @@ import logging
 
 import numpy as np
 
+from ...base import LoggingBase
+
 if TYPE_CHECKING:
     from ..fpga.base import FPGABase
 
 
-class Scan(object):
+class Scan(LoggingBase):
     """This class controls a scan chain using FPGA.
 
     Parameters
@@ -30,7 +32,8 @@ class Scan(object):
     """
 
     def __init__(self, fname: str, fpga: Optional[FPGABase], pre_bytes: int=0, post_bytes: int=0) -> None:
-        self._logger = logging.getLogger(self.get_full_qualified_name())
+        LoggingBase.__init__(self)
+
         self._fpga = fpga
 
         self._value = {}
@@ -61,23 +64,6 @@ class Scan(object):
         self._nbytes = -(-self._nbits // 8)
 
         self.write_twice()
-
-    @classmethod
-    def get_full_qualified_name(cls) -> str:
-        """Returns the fully qualified class name of this class."""
-        return cls.__module__ + '.' + cls.__name__
-
-    def log_msg(self, msg: str, level: int=logging.DEBUG) -> None:
-        """Logs the given message.
-
-        Parameters
-        ----------
-        msg : str
-            the message to log.
-        level : int
-            the logging level.
-        """
-        self._logger.log(level=level, msg=msg)
 
     def set_from_file(self, fname: str) -> None:
         """Set the values in the scan chain to the values specified in the given file.
