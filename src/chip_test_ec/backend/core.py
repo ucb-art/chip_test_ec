@@ -63,6 +63,10 @@ class Controller(object):
     def scan(self) -> Scan:
         return self._scan
 
+    @property
+    def gpib_table(self) -> Dict[str, GPIBController]:
+        return self._gpib_devices
+
     def get_device(self, name: str) -> GPIBController:
         """Returns the GPIB device corresponding to the given name.
 

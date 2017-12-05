@@ -2,7 +2,7 @@
 
 """This module defines GUI components that let users interact with GPIB devices."""
 
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING, Dict
 
 from PyQt5 import QtWidgets, QtCore
 
@@ -21,21 +21,19 @@ class GPIBFrame(QtWidgets.QFrame):
 
     Parameters
     ----------
-    name_list : Sequence[str]
-        a list of GPIB device names.
-    dev_list : Sequence[GPIBController]
-        a list of GPIB device controllers.
+    gpib_table : Dict[str, GPIBController]
+        a dictionary of all GPIB devices.
     logger : LogWidget
         the LogWidget used to display messages.
 
     """
-    def __init__(self, name_list: Sequence[str], dev_list: Sequence[GPIBController], logger: LogWidget):
+    def __init__(self, gpib_table: Dict[str, GPIBController], logger: LogWidget):
         super(GPIBFrame, self).__init__()
 
-        self.name_list = name_list
-        self.dev_list = dev_list
+        self.name_list = sorted(gpib_table.keys())
+        self.dev_list = [gpib_table[name] for name in self.name_list]
         self.dev_sel = QtWidgets.QComboBox()
-        self.dev_sel.addItems(name_list)
+        self.dev_sel.addItems(self.name_list)
         self.q_cmd = LineEditHist(num_hist=200)
         self.w_cmd = LineEditHist(num_hist=200)
         self.logger = logger
