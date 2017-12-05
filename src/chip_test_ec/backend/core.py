@@ -40,7 +40,7 @@ class Controller(object):
         scan_info = specs['scan']
         if self._fpga is None and not fake:
             raise Exception('Not in fake scan mode and FPGA is not initialized.')
-        fname = scan_info['file']
+        fname = scan_info['fname']
         pre_bytes = scan_info.get('pre_bytes', 0)
         post_bytes = scan_info.get('post_bytes', 0)
         self._scan = Scan(fname, self._fpga, pre_bytes=pre_bytes, post_bytes=post_bytes)

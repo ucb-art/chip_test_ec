@@ -48,7 +48,7 @@ class TitledForm(QtWidgets.QGroupBox):
     specs : Dict[str, Any]
         list of parameter specifications.
     font_size : int
-        font size of this group box.
+        font size of this component.
     buttons : bool
         True to include Apply/Revert buttons.
     show_title : bool
@@ -69,7 +69,7 @@ class TitledForm(QtWidgets.QGroupBox):
         if show_title:
             self.setTitle(name)
 
-        self.form_name = name
+        self._form_name = name
         self.conf_fname = os.path.join(conf_path, '{}.yaml'.format(name))
 
         self.values = {}
@@ -142,6 +142,10 @@ class TitledForm(QtWidgets.QGroupBox):
             bot_frame.setLayout(bot_lay)
             lay.addWidget(bot_frame)
 
+    @property
+    def name(self):
+        return self._form_name
+
     def get_form_values(self) -> Dict[str, Any]:
         """Returns the form values as a dictionary."""
         # clear so old entries from init file will get flushed.
@@ -168,7 +172,7 @@ class TitledForm(QtWidgets.QGroupBox):
         with open(self.conf_fname, 'w') as f:
             yaml.dump(self.values, f)
 
-        return self.values
+        return self.values.copy()
 
     @QtCore.pyqtSlot()
     def submit(self) -> None:
