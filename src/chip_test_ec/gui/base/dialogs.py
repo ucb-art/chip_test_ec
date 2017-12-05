@@ -3,13 +3,16 @@
 """This module defines various dialogs.
 """
 
-from typing import Callable, Dict, Any
+from typing import TYPE_CHECKING, Callable, Dict, Any
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 
 from .forms import TitledForm
 from .displays import LogWidget
 from .threads import WorkerThread
+
+if TYPE_CHECKING:
+    from ...backend.core import Controller
 
 
 class FormDialog(QtWidgets.QDialog):
@@ -52,7 +55,7 @@ class FuncDialog(QtWidgets.QDialog):
 
     parent :
         the parent of this dialog.
-    ctrl :
+    ctrl : Controller
         the controller object.
     conf_path : str
         the configuration directory path.
@@ -65,7 +68,7 @@ class FuncDialog(QtWidgets.QDialog):
     font_size : int
         the font size.
     """
-    def __init__(self, parent, ctrl, conf_path: str, name: str, fun: Callable, specs: Dict[str, Any],
+    def __init__(self, parent, ctrl: Controller, conf_path: str, name: str, fun: Callable, specs: Dict[str, Any],
                  font_size: int=11):
         super(FuncDialog, self).__init__(parent)
 

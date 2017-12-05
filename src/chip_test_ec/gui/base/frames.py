@@ -10,6 +10,7 @@ from .dialogs import FuncDialog
 
 if TYPE_CHECKING:
     from .displays import LogWidget
+    from ...backend.core import Controller
 
 
 class FuncFrame(QtWidgets.QFrame):
@@ -17,7 +18,7 @@ class FuncFrame(QtWidgets.QFrame):
 
     Parameters
     ----------
-    ctrl :
+    ctrl : Controller
         the controller object.
     conf_path : str
         the function settings configuration directory.
@@ -42,7 +43,7 @@ class FuncFrame(QtWidgets.QFrame):
     font_size : int
         the frame font size.
     """
-    def __init__(self, ctrl, conf_path: str, logger: LogWidget, vfunc_list, func_list, font_size=11):
+    def __init__(self, ctrl: Controller, conf_path: str, logger: LogWidget, vfunc_list, func_list, font_size=11):
         super(FuncFrame, self).__init__()
 
         # set font
