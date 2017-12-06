@@ -4,7 +4,7 @@
 
 from typing import Dict, Any
 
-from PyQt5 import QtWidgets, QtGui
+from PyQt5 import QtWidgets, QtGui, QtCore
 
 from .base.displays import LogWidget
 from .scan.core import ScanFrame
@@ -37,6 +37,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setFont(font)
 
         self.setWindowTitle('Chip Testing Main Window')
+        # try to get Qt to delete all C++ objects before Python garbage collection kicks in
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         tabs = QtWidgets.QTabWidget()
 
         self.logger = LogWidget()
