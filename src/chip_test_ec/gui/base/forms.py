@@ -32,7 +32,7 @@ def make_form(name_list: Sequence[str], widget_list: Sequence[QtWidgets.QWidget]
     lay = QtWidgets.QFormLayout()
     frame.setLayout(lay)
     for name, widget in zip(name_list, widget_list):
-        lay.addRow(name, widget)
+        lay.addRow('&%s:' % name, widget)
     return frame
 
 
@@ -119,7 +119,7 @@ class TitledForm(QtWidgets.QGroupBox):
 
             self.params.append(par_name)
             self.components.append(comp)
-            labels.append(par_name + ': ')
+            labels.append(par_name)
 
         body = make_form(labels, self.components)
 

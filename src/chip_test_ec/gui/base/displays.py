@@ -18,6 +18,9 @@ class LogWidget(QtWidgets.QFrame):
         button.clicked.connect(self.clear_log)
 
         lay = QtWidgets.QVBoxLayout()
+        lay.setSpacing(0)
+        lay.setStretch(0, 1)
+        lay.setStretch(1, 0)
         self.setLayout(lay)
         lay.addWidget(self.logger)
         lay.addWidget(button)

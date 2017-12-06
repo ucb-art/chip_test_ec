@@ -55,6 +55,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
         master = QtWidgets.QFrame()
         mlay = QtWidgets.QVBoxLayout()
+        mlay.setSpacing(0)
+        mlay.setStretch(0, 1)
+        mlay.setStretch(1, 1)
         master.setLayout(mlay)
         mlay.addWidget(tabs)
         mlay.addWidget(self.logger)

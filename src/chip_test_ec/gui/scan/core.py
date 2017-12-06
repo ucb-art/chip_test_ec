@@ -8,7 +8,6 @@ import os
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from .models import ScanItemModel, ScanSortFilterProxyModel
-from ..base.forms import make_form
 
 
 class ScanDelegate(QtWidgets.QStyledItemDelegate):
@@ -97,11 +96,10 @@ class ScanFrame(QtWidgets.QFrame):
         filter_text = QtWidgets.QLineEdit()
         # noinspection PyUnresolvedReferences
         filter_text.textChanged[str].connect(proxy.update_filter)
-        top_frame = make_form(['Filter: '], [filter_text])
+        filter_label = QtWidgets.QLabel('&Filter:')
+        filter_label.setBuddy(filter_text)
 
         # configure tree view
-        self.lay = QtWidgets.QVBoxLayout()
-        self.setLayout(self.lay)
         self.view = QtWidgets.QTreeView()
         self.view.setItemDelegate(self.delegate)
         self.view.setSortingEnabled(True)
@@ -111,8 +109,8 @@ class ScanFrame(QtWidgets.QFrame):
         self.view.header().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         self.view.setModel(proxy)
 
-        # configure step box and sync checkbox
-        checkbox = QtWidgets.QCheckBox("Disable sync")
+        # configure step box, sync checkbox, and buttons
+        checkbox = QtWidgets.QCheckBox('Disable sync')
         # noinspection PyUnresolvedReferences
         checkbox.stateChanged[int].connect(model.set_sync_flag)
         self.stepbox = QtWidgets.QSpinBox()
@@ -120,12 +118,8 @@ class ScanFrame(QtWidgets.QFrame):
         self.stepbox.setValue(1)
         # noinspection PyUnresolvedReferences
         self.stepbox.valueChanged[int].connect(self.delegate.set_step_size)
-        bot_frame = QtWidgets.QFrame()
-        bot_lay = QtWidgets.QHBoxLayout()
-        bot_frame.setLayout(bot_lay)
-        bot_lay.addWidget(checkbox)
-        bot_lay.addWidget(make_form(['Step Size: '], [self.stepbox]))
-
+        step_label = QtWidgets.QLabel('&Step Size:')
+        step_label.setBuddy(self.stepbox)
         save_button = QtWidgets.QPushButton('Save To File...')
         # noinspection PyUnresolvedReferences
         save_button.clicked.connect(self.save_to_file)
@@ -133,17 +127,27 @@ class ScanFrame(QtWidgets.QFrame):
         # noinspection PyUnresolvedReferences
         set_button.clicked.connect(self.set_from_file)
 
-        temp1 = QtWidgets.QFrame()
-        temp2 = QtWidgets.QHBoxLayout()
-        temp1.setLayout(temp2)
-        temp2.addWidget(save_button)
-        temp2.addWidget(set_button)
+        # the bottom frame
+        self.lay = QtWidgets.QGridLayout()
+        self.lay.addWidget(filter_label, 0, 0)
+        self.lay.addWidget(filter_text, 0, 1, 1, 3)
+        self.lay.addWidget(self.view, 1, 0, 1, 4)
+        self.lay.addWidget(checkbox, 2, 0, 1, 2)
+        self.lay.addWidget(step_label, 2, 2)
+        self.lay.addWidget(self.stepbox, 2, 3)
+        self.lay.addWidget(save_button, 3, 0, 1, 2)
+        self.lay.addWidget(set_button, 3, 2, 1, 2)
 
-        # add all GUI elements
-        self.lay.addWidget(top_frame)
-        self.lay.addWidget(self.view)
-        self.lay.addWidget(bot_frame)
-        self.lay.addWidget(temp1)
+        self.lay.setRowStretch(0, 0)
+        self.lay.setRowStretch(1, 1)
+        self.lay.setRowStretch(2, 0)
+        self.lay.setRowStretch(3, 0)
+        self.lay.setColumnStretch(0, 0)
+        self.lay.setColumnStretch(1, 0)
+        self.lay.setColumnStretch(2, 0)
+        self.lay.setColumnStretch(3, 1)
+
+        self.setLayout(self.lay)
 
     @QtCore.pyqtSlot()
     def set_from_file(self):
