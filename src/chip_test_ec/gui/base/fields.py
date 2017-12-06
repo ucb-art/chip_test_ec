@@ -47,9 +47,9 @@ class FileField(QtWidgets.QFrame):
         else:
             cur_dir = os.getcwd()
         if not self.get_dir:
-            fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
+            fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
         else:
-            fname = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Directory', cur_dir)
+            fname, _ = QtWidgets.QFileDialog.getExistingDirectory(self, 'Select Directory', cur_dir)
         if fname:
             self.edit.setText(fname)
 

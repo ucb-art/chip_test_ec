@@ -3,7 +3,7 @@
 """This module defines various dialogs.
 """
 
-from typing import TYPE_CHECKING, Callable, Dict, Any
+from typing import Callable, Dict, Any
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 
@@ -11,8 +11,8 @@ from .forms import TitledForm
 from .displays import LogWidget
 from .threads import WorkerThread
 
-if TYPE_CHECKING:
-    from ...backend.core import Controller
+# type check imports
+from ...backend.core import Controller
 
 
 class FormDialog(QtWidgets.QDialog):

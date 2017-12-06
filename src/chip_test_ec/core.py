@@ -2,7 +2,7 @@
 
 """This module defines top level functions that starts the chip testing GUI."""
 
-from PyQt5 import QtGui, QtWidgets
+from PyQt5 import QtWidgets
 
 from chip_test_ec.gui.base.frames import ControllerFrame
 from chip_test_ec.gui.base.dialogs import FormDialog
@@ -11,7 +11,7 @@ from chip_test_ec.backend.core import Controller
 
 
 def run_main(conf_path, ctrl_specs, gui_specs, font_size=11):
-    app = QtGui.QGuiApplication([])
+    app = QtWidgets.QApplication([])
 
     frame = ControllerFrame(conf_path, ctrl_specs, font_size=font_size)
     d = FormDialog(None, frame, 'Controller Setup')

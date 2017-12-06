@@ -20,6 +20,7 @@ fpga:
     min: 0.0
     max: 10000.0
     step: 0.01
+    precision: 2
   flow_ctrl:
     type: select
     default: 'hardware'
@@ -66,6 +67,6 @@ gpib:
       default: 10000
       min: 0
       max: 100000
-    use_via:
+    use_visa:
       type: 'bool'
       default: True

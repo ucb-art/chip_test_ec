@@ -2,16 +2,16 @@
 
 """This module defines varous GUI frames."""
 
-from typing import TYPE_CHECKING, Dict, Any
+from typing import Dict, Any
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from .dialogs import FuncDialog
 from .forms import TitledForm
 
-if TYPE_CHECKING:
-    from .displays import LogWidget
-    from ...backend.core import Controller
+# type check imports
+from .displays import LogWidget
+from ...backend.core import Controller
 
 
 class FuncFrame(QtWidgets.QFrame):

@@ -2,15 +2,15 @@
 
 """This module defines GUI components that let users interact with GPIB devices."""
 
-from typing import TYPE_CHECKING, Dict
+from typing import Dict
 
 from PyQt5 import QtWidgets, QtCore
 
 from .base.fields import LineEditHist
 
-if TYPE_CHECKING:
-    from ..backend.gpib.core import GPIBController
-    from .base.displays import LogWidget
+# type check imports
+from ..backend.gpib.core import GPIBController
+from .base.displays import LogWidget
 
 
 class GPIBFrame(QtWidgets.QFrame):

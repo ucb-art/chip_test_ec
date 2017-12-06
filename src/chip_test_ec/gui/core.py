@@ -2,7 +2,7 @@
 
 """This module defines the top level chip testing GUI window."""
 
-from typing import TYPE_CHECKING, Dict, Any
+from typing import Dict, Any
 
 from PyQt5 import QtWidgets, QtGui
 
@@ -10,8 +10,8 @@ from .base.displays import LogWidget
 from .scan.core import ScanFrame
 from .gpib import GPIBFrame
 
-if TYPE_CHECKING:
-    from ..backend.core import Controller
+# type check imports
+from ..backend.core import Controller
 
 
 class MainWindow(QtWidgets.QMainWindow):

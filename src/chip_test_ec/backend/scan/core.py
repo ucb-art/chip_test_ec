@@ -2,7 +2,7 @@
 
 """This module defines Scan, a class for controlling a scan chain.."""
 
-from typing import TYPE_CHECKING, List, Optional, Callable
+from typing import List, Optional, Callable
 
 import os
 import logging
@@ -11,8 +11,8 @@ import numpy as np
 
 from ...base import LoggingBase
 
-if TYPE_CHECKING:
-    from ..fpga.base import FPGABase
+# type check imports
+from ..fpga.base import FPGABase
 
 
 class Scan(LoggingBase):

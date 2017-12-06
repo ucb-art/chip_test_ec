@@ -3,14 +3,14 @@
 
 """This module defines core classes for controlling chip, FPGA, and equipments.."""
 
-from typing import TYPE_CHECKING, Optional, Dict, Any
+from typing import Optional, Dict, Any
 
 from ..util.core import import_class
 from .scan.core import Scan
 
-if TYPE_CHECKING:
-    from .fpga.base import FPGABase
-    from .gpib.core import GPIBController
+# type check imports
+from .fpga.base import FPGABase
+from .gpib.core import GPIBController
 
 
 class Controller(object):
