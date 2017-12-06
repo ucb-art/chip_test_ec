@@ -4,6 +4,9 @@
 
 from PyQt5 import QtCore, QtGui
 
+# type check imports
+from ...backend.scan.core import Scan
+
 
 class ScanItem(QtGui.QStandardItem):
     """A subclass of QStandardItem that represents a scan value field.
@@ -39,7 +42,7 @@ class ScanItemModel(QtGui.QStandardItemModel):
 
     scanChainChanged = QtCore.pyqtSignal()
 
-    def __init__(self, ctrl):
+    def __init__(self, ctrl: Scan):
         """Create a new ScanItemModel based on the given scan control object.
 
         Parameters
@@ -52,7 +55,8 @@ class ScanItemModel(QtGui.QStandardItemModel):
         self.item_dict = self._build_model()
         self.sync_flag = True
         self.setHorizontalHeaderLabels(['Scan Name', 'Value'])
-        ctrl.add_listener(self)
+        # noinspection PyUnresolvedReferences
+        ctrl.add_callback(self.scanChainChanged.emit)
         # noinspection PyUnresolvedReferences
         self.scanChainChanged.connect(self._update)
 
@@ -68,7 +72,7 @@ class ScanItemModel(QtGui.QStandardItemModel):
             self.sync_flag = False
         else:
             self.sync_flag = True
-            self._updateScanFromModel()
+            self._update_scan_from_model()
 
     def _build_model(self):
         """Builds this model from the Scan instance.
@@ -104,7 +108,8 @@ class ScanItemModel(QtGui.QStandardItemModel):
         return item_dict
 
     def _update_scan_from_model(self):
-        for name, old_val in self.ctrl.value.iteritems():
+        for name in self.ctrl.get_scan_names():
+            old_val = self.ctrl.get_value(name)
             item = self.item_dict[name]
             idx = self.indexFromItem(item)
             val_idx = idx.sibling(idx.row(), 1)
@@ -117,7 +122,8 @@ class ScanItemModel(QtGui.QStandardItemModel):
     def _update(self):
         """Update this model to have the same content as the scan control.
         """
-        for name, val in self.ctrl.value.iteritems():
+        for name in self.ctrl.get_scan_names():
+            val = self.ctrl.get_value(name)
             item = self.item_dict[name]
             idx = self.indexFromItem(item)
             val_idx = idx.sibling(idx.row(), 1)

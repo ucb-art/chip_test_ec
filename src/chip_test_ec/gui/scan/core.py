@@ -107,14 +107,14 @@ class ScanFrame(QtWidgets.QFrame):
         self.view.setSortingEnabled(True)
         self.view.header().setSortIndicatorShown(True)
         self.view.header().setSortIndicator(0, QtCore.Qt.AscendingOrder)
-        self.view.header().setClickable(True)
-        self.view.header().setResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.view.header().setSectionsClickable(True)
+        self.view.header().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         self.view.setModel(proxy)
 
         # configure step box and sync checkbox
         checkbox = QtWidgets.QCheckBox("Disable sync")
         # noinspection PyUnresolvedReferences
-        checkbox.stateChanged[int].connect(model.setSyncFlag)
+        checkbox.stateChanged[int].connect(model.set_sync_flag)
         self.stepbox = QtWidgets.QSpinBox()
         self.stepbox.setMaximum(max_step)
         self.stepbox.setValue(1)
@@ -148,13 +148,13 @@ class ScanFrame(QtWidgets.QFrame):
     @QtCore.pyqtSlot()
     def set_from_file(self):
         cur_dir = os.getcwd()
-        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
         if fname:
             self.model.set_from_file(fname)
 
     @QtCore.pyqtSlot()
     def save_to_file(self):
         cur_dir = os.getcwd()
-        fname = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir)
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir)
         if fname:
             self.model.save_to_file(fname)

@@ -116,7 +116,7 @@ class Scan(LoggingBase):
         scan_list : List[str]
             a list of scan names.
         """
-        return list(self._order)
+        return self._order
 
     def set(self, name: str, value: int) -> None:
         """Sets the given scan bus value.
@@ -250,4 +250,4 @@ class Scan(LoggingBase):
             self._post_data = [0] * self._read_post_bytes
 
         for fun in self._callbacks:
-            fun(self)
+            fun()
