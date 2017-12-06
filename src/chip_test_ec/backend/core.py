@@ -20,11 +20,9 @@ class Controller(object):
     ----------
     specs : Dict[str, Any]
         the controller specification dictionary.
-    fake : bool
-        If True,
     """
-
-    def __init__(self, specs: Dict[str, Any], fake: bool=False) -> None:
+    def __init__(self, specs: Dict[str, Any]) -> None:
+        fake = specs.get('fake', False)
         # create FPGA
         fpga_info = specs.get('fpga', None)
         if fpga_info is None or fake:
@@ -43,17 +41,20 @@ class Controller(object):
         fname = scan_info['fname']
         pre_bytes = scan_info.get('pre_bytes', 0)
         post_bytes = scan_info.get('post_bytes', 0)
-        self._scan = Scan(fname, self._fpga, pre_bytes=pre_bytes, post_bytes=post_bytes)
+        self._scan = Scan(self._fpga, fname, pre_bytes=pre_bytes, post_bytes=post_bytes)
 
         # create GPIB devices
         gpib_info = specs['gpib']
         self._gpib_devices = {}
         for name, info in gpib_info.items():
-            mod_name = info['module']
-            cls_name = info['class']
-            params = info['params']
-            gpib_cls = import_class(mod_name, cls_name)
-            self._gpib_devices[name] = gpib_cls(**params)
+            if fake:
+                self._gpib_devices[name] = None
+            else:
+                mod_name = info['module']
+                cls_name = info['class']
+                params = info['params']
+                gpib_cls = import_class(mod_name, cls_name)
+                self._gpib_devices[name] = gpib_cls(**params)
 
     @property
     def fpga(self) -> Optional[FPGABase]:
@@ -64,10 +65,10 @@ class Controller(object):
         return self._scan
 
     @property
-    def gpib_table(self) -> Dict[str, GPIBController]:
+    def gpib_table(self) -> Dict[str, Optional[GPIBController]]:
         return self._gpib_devices
 
-    def get_device(self, name: str) -> GPIBController:
+    def get_device(self, name: str) -> Optional[GPIBController]:
         """Returns the GPIB device corresponding to the given name.
 
         Parameters
@@ -77,7 +78,7 @@ class Controller(object):
 
         Returns
         -------
-        device : GPIBController
-            the GPIB device.
+        device : Optional[GPIBController]
+            the GPIB device, None if this is a fake Controller.
         """
         return self._gpib_devices[name]

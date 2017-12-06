@@ -1,72 +1,46 @@
+# FPGA specifications
 fpga:
-  order: ['module', 'class', 'port', 'baud_rate', 'timeout', 'flow_ctrl']
-  module:
-    type: 'str'
-    default: 'chip_test_ec.backend.fpga.base'
-  class:
-    type: str
-    default: 'FPGASerial'
-  port:
-    type: 'str'
-    default: 'COM3'
-  baud_rate:
-    type: 'int'
-    default: 500000
-    min: 0
-    max: 1000000
-  timeout:
-    type: 'float'
-    default: 10.0
-    min: 0.0
-    max: 10000.0
-    step: 0.01
-    precision: 2
-  flow_ctrl:
-    type: select
-    default: 'hardware'
-    values: ['hardware', 'software']
+  # FPGA controller Python module
+  module: 'chip_test_ec.backend.fpga.base'
+  # FPGA controller Python class
+  class: 'FPGASerial'
+  # FPGA controller parameters
+  params:
+    # serial port name
+    port: 'COM3'
+    # serial port baud rate
+    baud_rate: 500000
+    # serial port timeout
+    timeout: 10.0
+    # serial port flow control
+    flow_ctrl: 'hardware'
 
+# Scan chain specifications
 scan:
-  order: ['fname', 'pre_bytes', 'post_bytes']
-  fname:
-    type: 'file'
-    default: ''
-  pre_bytes:
-    type: 'int'
-    default: 0
-    min: 0
-    max: 10000
-  post_bytes:
-    type: 'int'
-    default: 0
-    min: 0
-    max: 10000
+  # scan bits definition file
+  fname: 'specs_sample/scan_config.txt'
+  # number of bytes before scan chain
+  pre_bytes: 0
+  # number of bytes after scan chain
+  post_bytes: 0
 
+# GPIB devices specifications
 gpib:
-  order: ['oscope']
+  # device name
   oscope:
-    order: ['module', 'class', 'bid', 'pad', 'timeout_ms', 'use_visa']
-    module:
-      type: 'str'
-      default: 'chip_test_ec.backend.gpib.oscope'
-    class:
-      type: 'str'
-      default: 'AG54855A'
-    bid:
-      type: 'int'
-      default: 1
-      min: 0
-      max: 99
-    pad:
-      type: 'int'
-      default: 1
-      min: 0
-      max: 99
-    timeout_ms:
-      type: 'int'
-      default: 10000
-      min: 0
-      max: 100000
-    use_visa:
-      type: 'bool'
-      default: True
+    # O-scope controller module name
+    module: 'chip_test_ec.backend.gpib.oscope'
+    # O-scope controller class name
+    class: 'AG54855A'
+    # O-scope board ID
+    bid: 1
+    # O-scope primiary address
+    pad: 1
+    # GPIB timeout
+    timeout_ms: 10000
+    # True to use NI-VISA backend when available (instead of linux-gpib).
+    use_visa: True
+
+# True to create a fake Controller object that doesn't talk with anything.
+# Used mainly for debugging.
+fake: True
