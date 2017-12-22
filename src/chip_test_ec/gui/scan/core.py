@@ -70,18 +70,18 @@ class ScanFrame(QtWidgets.QFrame):
 
     Parameters
     ----------
-    scan_ctrl : chip_test_ec.backend.scan.core.Scan
+    fpga : chip_test_ec.backend.fpga.base.FPGABase
         the scan chain object.
     font_size : int
         the font size for this frame.
     max_step : int
         maximum scan bus spinbox step size.
     """
-    def __init__(self, scan_ctrl, font_size=11, max_step=8192):
+    def __init__(self, fpga, font_size=11, max_step=8192):
         super(ScanFrame, self).__init__()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-        model = ScanItemModel(scan_ctrl)
-        self.model = model
+        self.fpga = fpga
+        self.chain_names = fpga.get_scan_chain_names()
         self.delegate = ScanDelegate()
 
         # set font
@@ -89,10 +89,22 @@ class ScanFrame(QtWidgets.QFrame):
         font.setPointSize(font_size)
         self.setFont(font)
 
+        # create scan models and configure chain selection box
+        self.models = []
+        chain_sel = QtWidgets.QComboBox()
+        sel_label = QtWidgets.QLabel('&Scan Chain:')
+        sel_label.setBuddy(chain_sel)
+        for chain_name in self.chain_names:
+            self.models.append(ScanItemModel(fpga, chain_name))
+            chain_sel.addItem(chain_name, chain_name)
+        chain_sel.setCurrentIndex(0)
+        # noinspection PyUnresolvedReferences
+        chain_sel.currentIndexChanged[int].connect(self.change_model)
+
         # configure filter
-        proxy = ScanSortFilterProxyModel()
-        proxy.setSourceModel(model)
-        proxy.setFilterKeyColumn(0)
+        self.proxy = ScanSortFilterProxyModel()
+        self.proxy.setSourceModel(self.models[0])
+        self.proxy.setFilterKeyColumn(0)
         filter_text = QtWidgets.QLineEdit()
         # noinspection PyUnresolvedReferences
         filter_text.textChanged[str].connect(proxy.update_filter)
@@ -107,7 +119,7 @@ class ScanFrame(QtWidgets.QFrame):
         self.view.header().setSortIndicator(0, QtCore.Qt.AscendingOrder)
         self.view.header().setSectionsClickable(True)
         self.view.header().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
-        self.view.setModel(proxy)
+        self.view.setModel(self.proxy)
 
         # configure step box, sync checkbox, and buttons
         checkbox = QtWidgets.QCheckBox('Disable sync')
@@ -129,19 +141,22 @@ class ScanFrame(QtWidgets.QFrame):
 
         # the bottom frame
         self.lay = QtWidgets.QGridLayout()
-        self.lay.addWidget(filter_label, 0, 0)
-        self.lay.addWidget(filter_text, 0, 1, 1, 3)
-        self.lay.addWidget(self.view, 1, 0, 1, 4)
-        self.lay.addWidget(checkbox, 2, 0, 1, 2)
-        self.lay.addWidget(step_label, 2, 2)
-        self.lay.addWidget(self.stepbox, 2, 3)
-        self.lay.addWidget(save_button, 3, 0, 1, 2)
-        self.lay.addWidget(set_button, 3, 2, 1, 2)
+        self.lay.addWidget(sel_label, 0, 0)
+        self.lay.addWidget(chain_sel, 0, 1, 1, 2)
+        self.lay.addWidget(filter_label, 1, 0)
+        self.lay.addWidget(filter_text, 1, 1, 1, 3)
+        self.lay.addWidget(self.view, 2, 0, 1, 4)
+        self.lay.addWidget(checkbox, 3, 0, 1, 2)
+        self.lay.addWidget(step_label, 3, 2)
+        self.lay.addWidget(self.stepbox, 3, 3)
+        self.lay.addWidget(save_button, 4, 0, 1, 2)
+        self.lay.addWidget(set_button, 4, 2, 1, 2)
 
         self.lay.setRowStretch(0, 0)
-        self.lay.setRowStretch(1, 1)
-        self.lay.setRowStretch(2, 0)
+        self.lay.setRowStretch(1, 0)
+        self.lay.setRowStretch(2, 1)
         self.lay.setRowStretch(3, 0)
+        self.lay.setRowStretch(4, 0)
         self.lay.setColumnStretch(0, 0)
         self.lay.setColumnStretch(1, 0)
         self.lay.setColumnStretch(2, 0)
@@ -149,16 +164,20 @@ class ScanFrame(QtWidgets.QFrame):
 
         self.setLayout(self.lay)
 
+    @QtCore.pyqtSlot(int)
+    def change_model(self, idx):
+        self.proxy.setSourceModel(self.models[idx])
+
     @QtCore.pyqtSlot()
     def set_from_file(self):
         cur_dir = os.getcwd()
         fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
         if fname:
-            self.model.set_from_file(fname)
+            self.fpga.set_scan_from_file(fname)
 
     @QtCore.pyqtSlot()
     def save_to_file(self):
         cur_dir = os.getcwd()
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir)
         if fname:
-            self.model.save_to_file(fname)
+            self.fpga.save_scan_to_file(fname)

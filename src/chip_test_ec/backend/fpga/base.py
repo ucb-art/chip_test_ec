@@ -8,11 +8,12 @@ The FPGASerial class is a class that controls an FPGA using a serial port.
 It can be used to control Xilinx GTX
 """
 
-from typing import Sequence, List
+from typing import List, Callable
 
+import os
 import abc
-import serial
-import struct
+
+import yaml
 
 from ...base import LoggingBase
 
@@ -22,134 +23,251 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
 
     This class defines methods that all FPGA controller have to implement.
 
-    """
-    def __init__(self) -> None:
-        LoggingBase.__init__(self)
+    The scan chain definition file is a simple text file, with the following format:
 
-    @abc.abstractmethod
-    def write_int(self, num: int) -> None:
-        """Transmit the given integer value as a byte to the FPGA.
-
-        Parameters
-        ----------
-        num : int
-            the byte value to transmit.
-        """
-        pass
-
-    @abc.abstractmethod
-    def write_ints(self, num_list: Sequence[int]) -> None:
-        """Transmit the given list of integers as bytes to the FPGA.
-
-        Parameters
-        ----------
-        num_list : Sequence[int]
-            the list of values to transmit
-        """
-        pass
-
-    @abc.abstractmethod
-    def read_ints(self, size: int) -> List[int]:
-        """Read given number of bytes from the FPGA and return as a list
-        of integers.
-
-        Parameters
-        ----------
-        size : int
-            number of bytes to read.
-
-        Returns
-        -------
-        byte_list : List[int]
-            a list of byte values as integers.
-        """
-        return []
-
-    @abc.abstractmethod
-    def close(self) -> None:
-        """Close the FPGA controller, free up resources.."""
-        pass
-
-
-class FPGASerial(FPGABase):
-    """A default implmentation of FPGABase that controls FPGA using a serial port (usually USB).
+    1. The first line contains two integers separated by space.  The first integer
+       is the number of chains, the second integer is the address length.
+    2. After the first line, the scan chain file contains chain definitions of each
+       chain.
+    3. For a chain definition, the first line contains three values separated by
+       space.  The first value is the chain name, the second value is the chain
+       address, the third value is the number of bits in this chain.  After that,
+       the chain definition contains scan bus definitions for each scan bus in this
+       chain, MSB first and LSB last.
+    4. A scan bus definition is a single line with 2-4 values.  The first value is
+       scan bus name, and the second value is the number of bits in the scan bus.
+       If exists, the third value is the default scan bus value (defaults to 0).
+       If exists, the fourth value is 0 if this scan bus should be skipped when
+       checking for scan chain correctness, 1 otherwise. Note that Scan bus names
+       must be unique in a chain.
 
     Parameters
     ----------
-    port : str
-        the serial port name.
-    baud_rate : int
-        the serial port baud rate.
-    timeout : int
-        the serial port timeout, in seconds.
-    flow_ctrl : str
-        the serial port flow control scheme.
+    fname : str
+        name of the scan chain file.
+    fake_scan : bool
+        If True, then will not actually do the scan procedure.  This is useful for
+        debugging.
     """
+    def __init__(self, fname: str, fake_scan: bool=False) -> None:
+        LoggingBase.__init__(self)
 
-    def __init__(self, port: str='COM3', baud_rate: int=500000, timeout: float=10.0,
-                 flow_ctrl: str='hardware') -> None:
-        FPGABase.__init__(self)
+        self._chain_info = {}
+        self._chain_value = {}
+        self._chain_order = {}
+        self._chain_check = {}
+        self._chain_blen = {}
+        self._callbacks = []
+        self._addr_len = 1
+        self._fake_scan = fake_scan
+        self._chain_names = None
 
-        # matlab switch between XON/XOFF and RTS/CTS flow control
-        if flow_ctrl == 'hardware':
-            rtscts = True
-            xonxoff = False
-        else:
-            rtscts = False
-            xonxoff = True
+        # parse scan chain file
+        with open(fname, 'r') as f:
+            lines = f.readlines()
+            parts = lines[0].split()
+            num_chain = int(parts[0])
+            self._addr_len = int(parts[1])
+            line_idx = 1
+            for chain_idx in range(num_chain):
+                parts = lines[line_idx].split()
+                chain_name = parts[0]
+                chain_addr = int(parts[1])
+                chain_len = int(parts[2])
+                self._chain_info[chain_name] = (chain_addr, chain_len)
+                line_idx += 1
+                chain_order = []
+                chain_value = {}
+                chain_blen = {}
+                chain_check = {}
+                for bit_idx in range(chain_len):
+                    parts = lines[line_idx].split()
+                    bit_name = parts[0]
+                    bit_len = int(parts[1])
+                    bit_val = 0 if len(parts) < 3 else int(parts[2])
+                    bit_check = True if len(parts) < 4 else bool(int(parts[3]))
 
-        # create serial port
-        self._port = serial.Serial(port=port,
-                                   baudrate=baud_rate,
-                                   timeout=timeout,
-                                   xonxoff=xonxoff,
-                                   rtscts=rtscts,
-                                   write_timeout=timeout,
-                                   dsrdtr=False)
+                    chain_order.append(bit_name)
+                    chain_value[bit_name] = bit_val
+                    chain_blen[bit_name] = bit_len
+                    chain_check[bit_name] = bit_check
+                    line_idx += 1
 
-    def write_int(self, num: int) -> None:
-        """Transmit the given integer value as a byte to the FPGA.
+                self._chain_value[chain_name] = chain_value
+                self._chain_order[chain_name] = chain_order
+                self._chain_blen[chain_name] = chain_blen
+                self._chain_check[chain_name] = chain_check
+
+        # get chain names, sorted by address
+        chain_sort = [(addr, name) for name, (addr, _) in self._chain_info.items()]
+        self._chain_names = [item[1] for item in sorted(chain_sort)]
+
+    @abc.abstractmethod
+    def close(self) -> None:
+        """Close the FPGA controller, free up resources.."""
+        pass
+
+    @abc.abstractmethod
+    def scan_in_and_read_out(self, chain_name: str, value: List[int]) -> List[int]:
+        """Scan in the given chain and return the content after scan.
 
         Parameters
         ----------
-        num : int
-            the byte value to transmit.
-        """
-        msg = struct.pack('@B', num)
-        self.log_msg('Writing single int = {0}, msg = {1}'.format(num, msg))
-        self._port.write(msg)
-
-    def write_ints(self, num_list: Sequence[int]) -> None:
-        """Transmit the given list of integers as bytes to the FPGA.
-
-        Parameters
-        ----------
-        num_list : Sequence[int]
-            the list of values to transmit
-        """
-        msg = bytearray(num_list)
-        self.log_msg('Writing integer list = {0}, msg = {1}'.format(num_list, [val for val in msg]))
-        self._port.write(msg)
-
-    def read_ints(self, size: int) -> List[int]:
-        """Read given number of bytes from the FPGA and return as a list
-        of integers.
-
-        Parameters
-        ----------
-        size : int
-            number of bytes to read.
+        chain_name : str
+            the scan chain name.
+        value : List[int]
+            the values to scan in.  Index 0 is the MSB scan bus.
 
         Returns
         -------
-        byte_list : List[int]
-            a list of byte values as integers.
+        output : List[int]
+            the chain values after the scan in procedure.  Index 0 is the MSB scan bus.
         """
-        barr = bytearray(self._port.read(size=size))
-        blist = [val for val in barr]
-        self.log_msg('Read bytearray: {0}'.format(blist))
-        return blist
+        return []
 
-    def close(self) -> None:
-        """Close the FPGA controller, free up resources.."""
-        self._port.close()
+    @property
+    def is_fake_scan(self) -> bool:
+        return self._fake_scan
+
+    def update_scan(self, chain_name: str, check: bool=False) -> None:
+        """Scan in the given chain, scan out the resulting data, then update
+
+        This method sets the given chain to stored data, then read out that
+        data shifted in and update the stored data values.
+
+        Parameters
+        ----------
+        chain_name : str
+            the chain to update.
+        check : bool
+            if True, will check if the updated data is the same as the data shifted
+            in.  Raise an error is this is not the case.
+        """
+        scan_values = self._chain_value[chain_name]
+        scan_names = self.get_scan_names(chain_name)
+
+        value = [scan_values[bus_name] for bus_name in scan_names]
+        output = self.scan_in_and_read_out(chain_name, value)
+
+        if len(value) != len(output):
+            raise ValueError('Scan output length different than scan input.')
+        if check:
+            scan_check = self._chain_check[chain_name]
+            for name, val_in, val_out in zip(scan_names, value, output):
+                if scan_check[name] and val_in != val_out:
+                    msg = 'Scan check failed: %s/%s = %d != %d' % (chain_name, name, val_out, val_in)
+                    raise ValueError(msg)
+
+        for name, val_in, val_out in zip(scan_names, value, output):
+            scan_values[name] = val_out
+
+        for fun in self._callbacks:
+            fun()
+
+    def set_scan_from_file(self, fname: str) -> None:
+        """Set the values in the scan chain to the values specified in the given file.
+
+        Parameters
+        ----------
+        fname : str
+            the file to read.
+        """
+        if not os.path.isfile(fname):
+            raise ValueError('%s is not a file.' % fname)
+
+        with open(fname, 'r') as f:
+            scan_dict = yaml.load(f)
+
+        for chain_name, chain_values in scan_dict.items():
+            self._chain_value[chain_name].update(chain_values)
+            self.update_scan(chain_name)
+
+    def save_scan_to_file(self, fname: str) -> None:
+        """Save the current scan chain content to the given file.
+
+        Parameters
+        ----------
+        fname : str
+            the file to write.
+        """
+        with open(fname, 'w') as f:
+            yaml.dump(self._chain_value, f)
+
+    def add_callback(self, fun: Callable[[], None]) -> None:
+        """Adds a function which will be called if the scan chain content changed.
+
+        Parameters
+        ----------
+        fun : Callable[[], None]
+            the function to call if scan chain updated.
+        """
+        self._callbacks.append(fun)
+
+    def get_scan_chain_names(self) -> List[str]:
+        """Returns a list of scan chain names.
+
+        Returns
+        -------
+        chain_names : List[str]
+            a list of scan chain names.
+        """
+        return self._chain_names
+
+    def get_scan_names(self, chain_name: str) -> List[str]:
+        """Returns a list of scan bus names.  Index 0 is the MSB scan bus.
+
+        Returns
+        -------
+        scan_list : List[str]
+            a list of scan bus names.
+        """
+        return self._chain_order[chain_name]
+
+    def set_scan(self, chain_name: str, bus_name: str, value: int) -> None:
+        """Sets the given scan bus value.
+
+        Parameters
+        ----------
+        chain_name : str
+            the scan chain name.
+        bus_name : str
+            the scan bus to set.
+        value : int
+            the new value.
+        """
+        self.log_msg('Scan: setting {}/{} to {}'.format(chain_name, bus_name, value))
+        self._chain_value[chain_name][bus_name] = value
+
+    def get_scan(self, chain_name: str, bus_name: str) -> int:
+        """Returns given scan bus value.
+
+        Parameters
+        ----------
+        chain_name : str
+            the scan chain name.
+        bus_name : str
+            the scan bus to set.
+
+        Returns
+        -------
+        value : int
+            the scan bus value.
+        """
+        return self._chain_value[chain_name][bus_name]
+
+    def get_scan_length(self, chain_name: str, bus_name: str) -> int:
+        """Returns the number of bits in the given scan bus.
+
+        Parameters
+        ----------
+        chain_name : str
+            the scan chain name.
+        bus_name : str
+            the scan bus to set.
+
+        Returns
+        -------
+        n : int
+            number of bits in the given scan bus.
+        """
+        return self._chain_blen[chain_name][bus_name]

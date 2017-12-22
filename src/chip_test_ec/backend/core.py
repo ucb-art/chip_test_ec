@@ -6,7 +6,6 @@
 from typing import Optional, Dict, Any
 
 from ..util.core import import_class
-from .scan.core import Scan
 
 # type check imports
 from .fpga.base import FPGABase
@@ -22,32 +21,19 @@ class Controller(object):
         the controller specification dictionary.
     """
     def __init__(self, specs: Dict[str, Any]) -> None:
-        fake = specs.get('fake', False)
         # create FPGA
-        fpga_info = specs.get('fpga', None)
-        if fpga_info is None or fake:
-            self._fpga = None
-        else:
-            mod_name = fpga_info['module']
-            cls_name = fpga_info['class']
-            params = fpga_info['params']
-            fpga_cls = import_class(mod_name, cls_name)
-            self._fpga = fpga_cls(**params)
-
-        # create scan
-        scan_info = specs['scan']
-        if self._fpga is None and not fake:
-            raise Exception('Not in fake scan mode and FPGA is not initialized.')
-        fname = scan_info['fname']
-        pre_bytes = scan_info.get('pre_bytes', 0)
-        post_bytes = scan_info.get('post_bytes', 0)
-        self._scan = Scan(self._fpga, fname, pre_bytes=pre_bytes, post_bytes=post_bytes)
+        fpga_info = specs['fpga']
+        mod_name = fpga_info['module']
+        cls_name = fpga_info['class']
+        params = fpga_info['params']
+        fpga_cls = import_class(mod_name, cls_name)
+        self._fpga = fpga_cls(**params)  # type: FPGABase
 
         # create GPIB devices
         gpib_info = specs['gpib']
         self._gpib_devices = {}
         for name, info in gpib_info.items():
-            if fake:
+            if self._fpga.is_fake_scan:
                 self._gpib_devices[name] = None
             else:
                 mod_name = info['module']
@@ -59,10 +45,6 @@ class Controller(object):
     @property
     def fpga(self) -> Optional[FPGABase]:
         return self._fpga
-
-    @property
-    def scan(self) -> Scan:
-        return self._scan
 
     @property
     def gpib_table(self) -> Dict[str, Optional[GPIBController]]:

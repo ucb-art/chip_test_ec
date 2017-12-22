@@ -5,7 +5,7 @@
 from PyQt5 import QtCore, QtGui
 
 # type check imports
-from ...backend.scan.core import Scan
+from ...backend.fpga.base import FPGABase
 
 
 class ScanItem(QtGui.QStandardItem):
@@ -42,21 +42,24 @@ class ScanItemModel(QtGui.QStandardItemModel):
 
     scanChainChanged = QtCore.pyqtSignal()
 
-    def __init__(self, ctrl: Scan):
+    def __init__(self, fpga: FPGABase, chain_name: str):
         """Create a new ScanItemModel based on the given scan control object.
 
         Parameters
         ----------
-        ctrl : chip_test_ec.backend.scan.core.Scan
-            the scan chain data structure object.
+        fpga : FPGABase
+            the fpga object used to control scan chains.
+        chain_name : str
+            the scan chain this model represents.
         """
         super(ScanItemModel, self).__init__()
-        self.ctrl = ctrl
+        self.fpga = fpga
+        self.chain_name = chain_name
         self.item_dict = self._build_model()
         self.sync_flag = True
         self.setHorizontalHeaderLabels(['Scan Name', 'Value'])
         # noinspection PyUnresolvedReferences
-        ctrl.add_callback(self.scanChainChanged.emit)
+        fpga.add_callback(self.scanChainChanged.emit)
         # noinspection PyUnresolvedReferences
         self.scanChainChanged.connect(self._update)
 
@@ -84,9 +87,9 @@ class ScanItemModel(QtGui.QStandardItemModel):
         """
 
         item_dict = {}
-        for name in self.ctrl.get_scan_names():
-            nbits = self.ctrl.get_numbits(name)
-            defval = self.ctrl.get_value(name)
+        for name in self.fpga.get_scan_names(self.chain_name):
+            nbits = self.fpga.get_scan_length(self.chain_name, name)
+            defval = self.fpga.get_scan(self.chain_name, name)
             parts = name.split('.')
             parent = self.invisibleRootItem()
             for idx in range(len(parts)):
@@ -108,22 +111,22 @@ class ScanItemModel(QtGui.QStandardItemModel):
         return item_dict
 
     def _update_scan_from_model(self):
-        for name in self.ctrl.get_scan_names():
-            old_val = self.ctrl.get_value(name)
+        for name in self.fpga.get_scan_names(self.chain_name):
+            old_val = self.fpga.get_scan(self.chain_name, name)
             item = self.item_dict[name]
             idx = self.indexFromItem(item)
             val_idx = idx.sibling(idx.row(), 1)
             new_val = self.data(val_idx, QtCore.Qt.EditRole)
             if old_val != new_val:
-                self.ctrl.set(name, new_val)
-        self.ctrl.write_twice()
+                self.fpga.set_scan(self.chain_name, name, new_val)
+        self.fpga.update_scan(self.chain_name)
 
     @QtCore.pyqtSlot()
     def _update(self):
         """Update this model to have the same content as the scan control.
         """
-        for name in self.ctrl.get_scan_names():
-            val = self.ctrl.get_value(name)
+        for name in self.fpga.get_scan_names(self.chain_name):
+            val = self.fpga.get_scan(self.chain_name, name)
             item = self.item_dict[name]
             idx = self.indexFromItem(item)
             val_idx = idx.sibling(idx.row(), 1)
@@ -143,17 +146,11 @@ class ScanItemModel(QtGui.QStandardItemModel):
                 while name_idx.parent().isValid():
                     name_idx = name_idx.parent()
                     name = self.itemFromIndex(name_idx).text() + '.' + name
-                self.ctrl.set(name, value)
-                self.ctrl.write_twice()
+                self.fpga.set_scan(self.chain_name, name, value)
+                self.fpga.update_scan(self.chain_name)
                 return True
             else:
                 return super(ScanItemModel, self).setData(index, value, role)
-
-    def set_from_file(self, fname):
-        self.ctrl.set_from_file(fname)
-
-    def save_to_file(self, fname):
-        self.ctrl.save_to_file(fname)
 
 
 class ScanSortFilterProxyModel(QtCore.QSortFilterProxyModel):

@@ -182,6 +182,7 @@ class GPIBVisa(GPIBBase):
             the GPIB command.
         """
         self.log_msg('Sending command %s to device (%d, %d)' % (cmd, self.bid, self.pad))
+        # noinspection PyUnresolvedReferences
         self._dev.write(cmd)
 
     def query(self, cmd: str) -> Optional[str]:
@@ -198,6 +199,7 @@ class GPIBVisa(GPIBBase):
             the device output.  None if an error occurred.
         """
         self.log_msg('Sending query %s to device (%d, %d)' % (cmd, self.bid, self.pad))
+        # noinspection PyUnresolvedReferences
         result = self._dev.query()
         self.log_msg('Receive output %s from device (%d, %d)' % (result, self.bid, self.pad))
         return result
