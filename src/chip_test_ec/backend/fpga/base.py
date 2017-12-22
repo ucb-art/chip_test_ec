@@ -8,10 +8,11 @@ The FPGASerial class is a class that controls an FPGA using a serial port.
 It can be used to control Xilinx GTX
 """
 
-from typing import List, Callable
+from typing import List, Callable, Tuple
 
 import os
 import abc
+import array
 
 import yaml
 
@@ -74,12 +75,12 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
                 chain_name = parts[0]
                 chain_addr = int(parts[1])
                 chain_len = int(parts[2])
-                self._chain_info[chain_name] = (chain_addr, chain_len)
                 line_idx += 1
                 chain_order = []
                 chain_value = {}
                 chain_blen = {}
                 chain_check = {}
+                chain_nbits = 0
                 for bit_idx in range(chain_len):
                     parts = lines[line_idx].split()
                     bit_name = parts[0]
@@ -92,7 +93,9 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
                     chain_blen[bit_name] = bit_len
                     chain_check[bit_name] = bit_check
                     line_idx += 1
+                    chain_nbits += bit_len
 
+                self._chain_info[chain_name] = (chain_addr, chain_nbits)
                 self._chain_value[chain_name] = chain_value
                 self._chain_order[chain_name] = chain_order
                 self._chain_blen[chain_name] = chain_blen
@@ -108,7 +111,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def scan_in_and_read_out(self, chain_name: str, value: List[int]) -> List[int]:
+    def scan_in_and_read_out(self, chain_name: str, value: List[int], numbits: List[int]) -> List[int]:
         """Scan in the given chain and return the content after scan.
 
         Parameters
@@ -117,6 +120,8 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             the scan chain name.
         value : List[int]
             the values to scan in.  Index 0 is the MSB scan bus.
+        numbits : List[int]
+            number of bits of each scan bus.  Index 0 is the MSB scan bus.
 
         Returns
         -------
@@ -128,6 +133,10 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
     @property
     def is_fake_scan(self) -> bool:
         return self._fake_scan
+
+    @property
+    def addr_len(self) -> int:
+        return self._addr_len
 
     def update_scan(self, chain_name: str, check: bool=False) -> None:
         """Scan in the given chain, scan out the resulting data, then update
@@ -144,10 +153,12 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             in.  Raise an error is this is not the case.
         """
         scan_values = self._chain_value[chain_name]
+        scan_blen = self._chain_blen[chain_name]
         scan_names = self.get_scan_names(chain_name)
 
         value = [scan_values[bus_name] for bus_name in scan_names]
-        output = self.scan_in_and_read_out(chain_name, value)
+        numbits = [scan_blen[bus_name] for bus_name in scan_names]
+        output = value if self.is_fake_scan else self.scan_in_and_read_out(chain_name, value, numbits)
 
         if len(value) != len(output):
             raise ValueError('Scan output length different than scan input.')
@@ -212,6 +223,23 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             a list of scan chain names.
         """
         return self._chain_names
+
+    def get_scan_chain_info(self, chain_name: str) -> Tuple[int, int]:
+        """Returns information about the given scan chain.
+
+        Parameters
+        ----------
+        chain_name : str
+            the scan chain name.
+
+        Returns
+        -------
+        addr : int
+            the chain address.
+        clen : int
+            the chain length.
+        """
+        return self._chain_info[chain_name]
 
     def get_scan_names(self, chain_name: str) -> List[str]:
         """Returns a list of scan bus names.  Index 0 is the MSB scan bus.
