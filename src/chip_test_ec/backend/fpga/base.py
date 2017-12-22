@@ -43,13 +43,13 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
 
     Parameters
     ----------
-    fname : str
-        name of the scan chain file.
+    scan_file : str
+        scan chain file name.
     fake_scan : bool
         If True, then will not actually do the scan procedure.  This is useful for
         debugging.
     """
-    def __init__(self, fname: str, fake_scan: bool=False) -> None:
+    def __init__(self, scan_file: str, fake_scan: bool=False) -> None:
         LoggingBase.__init__(self)
 
         self._chain_info = {}
@@ -63,7 +63,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         self._chain_names = None
 
         # parse scan chain file
-        with open(fname, 'r') as f:
+        with open(scan_file, 'r') as f:
             lines = f.readlines()
             parts = lines[0].split()
             num_chain = int(parts[0])
@@ -123,7 +123,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         output : List[int]
             the chain values after the scan in procedure.  Index 0 is the MSB scan bus.
         """
-        return []
+        return value
 
     @property
     def is_fake_scan(self) -> bool:
