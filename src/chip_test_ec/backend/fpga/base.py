@@ -32,7 +32,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
        chain.
     3. For a chain definition, the first line contains three values separated by
        space.  The first value is the chain name, the second value is the chain
-       address, the third value is the number of bits in this chain.  After that,
+       address, the third value is the number of scan bus in this chain.  After that,
        the chain definition contains scan bus definitions for each scan bus in this
        chain, MSB first and LSB last.
     4. A scan bus definition is a single line with 2-4 values.  The first value is
