@@ -12,6 +12,7 @@ from typing import List, Callable, Tuple
 
 import os
 import abc
+import logging
 
 import yaml
 
@@ -157,22 +158,34 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
 
         value = [scan_values[bus_name] for bus_name in scan_names]
         numbits = [scan_blen[bus_name] for bus_name in scan_names]
-        output = value if self.is_fake_scan else self.scan_in_and_read_out(chain_name, value, numbits)
+        if self.is_fake_scan:
+            self.log_msg('updating chain %s in fake scan mode' % chain_name, level=logging.INFO)
+            output = value
+        else:
+            self.log_msg('scanning chain %s' % chain_name, level=logging.INFO)
+            output = self.scan_in_and_read_out(chain_name, value, numbits)
 
         if len(value) != len(output):
-            raise ValueError('Scan output length different than scan input.')
+            msg = 'Scan chain %s output length different than scan input.' % chain_name
+            self.log_msg(msg, level=logging.ERROR)
+            raise ValueError(msg)
         if check:
+            self.log_msg('Checking scan chain %s correctness' % chain_name, level=logging.INFO)
             scan_check = self._chain_check[chain_name]
             for name, val_in, val_out in zip(scan_names, value, output):
                 if scan_check[name] and val_in != val_out:
                     msg = 'Scan check failed: %s/%s = %d != %d' % (chain_name, name, val_out, val_in)
+                    self.log_msg(msg, level=logging.ERROR)
                     raise ValueError(msg)
+            self.log_msg('Scan chain %s checking passed' % chain_name, level=logging.DEBUG)
 
         for name, val_in, val_out in zip(scan_names, value, output):
             scan_values[name] = val_out
 
+        self.log_msg('running callback functions after scan.', level=logging.INFO)
         for fun in self._callbacks:
             fun()
+        self.log_msg('scan update done.', level=logging.INFO)
 
     def set_scan_from_file(self, fname: str) -> None:
         """Set the values in the scan chain to the values specified in the given file.
