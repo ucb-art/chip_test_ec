@@ -16,7 +16,7 @@ class LoggingBase(object):
         """Returns the fully qualified class name of this class."""
         return cls.__module__ + '.' + cls.__name__
 
-    def log_msg(self, msg: str, level: int = logging.DEBUG) -> None:
+    def log_msg(self, msg: str, level: int = logging.DEBUG, disp: bool = False) -> None:
         """Logs the given message.
 
         Parameters
@@ -25,5 +25,9 @@ class LoggingBase(object):
             the message to log.
         level : int
             the logging level.
+        disp : bool
+            True to display the message on stdout.
         """
         self._logger.log(level=level, msg=msg)
+        if disp:
+            print(msg)
