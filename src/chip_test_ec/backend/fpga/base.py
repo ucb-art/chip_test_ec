@@ -12,7 +12,6 @@ from typing import List, Callable, Tuple
 
 import os
 import abc
-import array
 
 import yaml
 
