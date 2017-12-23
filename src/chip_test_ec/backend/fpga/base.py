@@ -275,6 +275,11 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         value : int
             the new value.
         """
+        chain_table = self._chain_value[chain_name]
+        if bus_name not in chain_table:
+            msg = 'Cannot find scan bus named %s in chain %s' % (bus_name, chain_name)
+            self.log_msg(msg, level=logging.ERROR)
+            raise ValueError(msg)
         self.log_msg('Scan: setting {}/{} to {}'.format(chain_name, bus_name, value))
         self._chain_value[chain_name][bus_name] = value
 
