@@ -8,7 +8,7 @@ The FPGASerial class is a class that controls an FPGA using a serial port.
 It can be used to control Xilinx GTX
 """
 
-from typing import List, Callable, Tuple
+from typing import List, Callable, Dict, Any
 
 import os
 import abc
@@ -24,23 +24,30 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
 
     This class defines methods that all FPGA controller have to implement.
 
-    The scan chain definition file is a simple text file, with the following format:
+    The scan chain definition file uses the YAML format so it is easy to support
+    various custom scan chain features.  The format is described below:
 
-    1. The first line contains two integers separated by space.  The first integer
-       is the number of chains, the second integer is the address length.
-    2. After the first line, the scan chain file contains chain definitions of each
-       chain.
-    3. For a chain definition, the first line contains 3 to 4 values separated by
-       space.  The first value is the chain name, the second value is the chain
-       address, the third value is the number of scan bus in this chain.  The fourth
-       value, if exist and non-zero, implies that this is a read chain instead of
-       a write chain.
-       After that, the chain definition contains scan bus definitions for each scan
-       bus in this chain, MSB first and LSB last.  Note that Scan bus names must be
-       unique in a chain.
-    4. A scan bus definition is a single line with 2-3 values.  The first value is
-       scan bus name, and the second value is the number of bits in the scan bus.
-       If exists, the third value is the default scan bus value (defaults to 0).
+    1. the file has at least the following 2 attributes:
+
+       nbits_addr : number of address bits.
+       chains : a dictionary from chain name to scan chains.  Each scan chain is
+       represented by a dictionary.
+
+    2. Each scan chain has at least the following 2 attributes:
+
+       addr : the address of this chain.
+       content : a list of all the scan buses in this chain.  The MSB scan bus
+       is listed first (corresponds to index 0).  Each scan bus is represented by
+       a dictionary.
+
+       scan chain cannot contain the attribute named 'nbits'.  This is calculated
+       automatically.
+
+    3. Each scan has at least the following 3 attributes:
+
+       name : name of the scan bus.
+       nbits : number of bits in this scan bus.
+       value : default value of this bus.  If not given, defaults to 0.
 
     Parameters
     ----------
@@ -53,57 +60,41 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
     def __init__(self, scan_file: str, fake_scan: bool=False) -> None:
         LoggingBase.__init__(self)
 
-        self._chain_info = {}
+        self._scan_config = None
         self._chain_value = {}
         self._chain_order = {}
-        self._chain_check = {}
         self._chain_blen = {}
         self._callbacks = []
-        self._addr_len = 1
         self._fake_scan = fake_scan
         self._chain_names = None
 
         # parse scan chain file
         with open(scan_file, 'r') as f:
-            lines = f.readlines()
-            parts = lines[0].split()
-            num_chain = int(parts[0])
-            self._addr_len = int(parts[1])
-            line_idx = 1
-            for chain_idx in range(num_chain):
-                parts = lines[line_idx].split()
-                chain_name = parts[0]
-                chain_addr = int(parts[1])
-                chain_len = int(parts[2])
-                chain_is_read = False if len(parts) < 4 else int(parts[3]) != 0
-                line_idx += 1
-                chain_order = []
-                chain_value = {}
-                chain_blen = {}
-                chain_check = {}
-                chain_nbits = 0
-                for bit_idx in range(chain_len):
-                    parts = lines[line_idx].split()
-                    bit_name = parts[0]
-                    bit_len = int(parts[1])
-                    bit_val = 0 if len(parts) < 3 else int(parts[2])
-                    bit_check = True if len(parts) < 4 else bool(int(parts[3]))
+            self._scan_config = yaml.load(f)
 
-                    chain_order.append(bit_name)
-                    chain_value[bit_name] = bit_val
-                    chain_blen[bit_name] = bit_len
-                    chain_check[bit_name] = bit_check
-                    line_idx += 1
-                    chain_nbits += bit_len
+        chain_sort = []
+        for chain_name, chain_info in self._scan_config['chains'].items():
+            chain_sort.append((chain_info['addr'], chain_name))
+            chain_value = {}
+            chain_order = []
+            chain_blen = {}
+            chain_nbits = 0
+            for bus_info in chain_info['content']:
+                bus_name = bus_info['name']
+                bus_nbits = bus_info['nbits']
+                chain_nbits += bus_nbits
+                chain_order.append(bus_name)
+                chain_value[bus_name] = bus_info.get('value', 0)
+                chain_blen[bus_name] = bus_nbits
 
-                self._chain_info[chain_name] = (chain_addr, chain_nbits, chain_is_read)
-                self._chain_value[chain_name] = chain_value
-                self._chain_order[chain_name] = chain_order
-                self._chain_blen[chain_name] = chain_blen
-                self._chain_check[chain_name] = chain_check
+            if 'nbits' in chain_info:
+                raise ValueError('chain %s contains reserved attribute nbits.')
+            chain_info['nbits'] = chain_nbits
 
-        # get chain names, sorted by address
-        chain_sort = [(addr, name) for name, (addr, _, _) in self._chain_info.items()]
+            self._chain_value[chain_name] = chain_value
+            self._chain_order[chain_name] = chain_order
+            self._chain_blen[chain_name] = chain_blen
+
         self._chain_names = [item[1] for item in sorted(chain_sort)]
 
     @abc.abstractmethod
@@ -131,13 +122,30 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         """
         return value
 
+    @abc.abstractmethod
+    def check_scan_success(self, chain_name: str, in_list: List[int], out_list: List[int]) -> None:
+        """Check that scan procedure is successful.
+
+        This method should raise a ValueError with detailed error message if the scan procedure failed.
+
+        Parameters
+        ----------
+        chain_name : str
+            the scan chain name.
+        in_list : List[int]
+            the list of scan in values for each scan bus.
+        out_list : List[int]
+            the list of scan out values for each scan bus.
+        """
+        pass
+
     @property
     def is_fake_scan(self) -> bool:
         return self._fake_scan
 
     @property
     def addr_len(self) -> int:
-        return self._addr_len
+        return self._scan_config['nbits_addr']
 
     def update_scan(self, chain_name: str, check: bool=False) -> None:
         """Scan in the given chain, scan out the resulting data, then update
@@ -154,11 +162,15 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             in.  Raise an error is this is not the case.
         """
         scan_values = self._chain_value[chain_name]
-        scan_blen = self._chain_blen[chain_name]
-        scan_names = self.get_scan_names(chain_name)
 
-        value = [scan_values[bus_name] for bus_name in scan_names]
-        numbits = [scan_blen[bus_name] for bus_name in scan_names]
+        # get value and numbits list
+        value, numbits = [], []
+        for bus_info in self._scan_config['chains'][chain_name]['content']:
+            bus_name = bus_info['name']
+            bus_nbits = bus_info['nbits']
+            value.append(scan_values[bus_name])
+            numbits.append(bus_nbits)
+
         if self.is_fake_scan:
             self.log_msg('updating chain %s in fake scan mode' % chain_name, level=logging.INFO)
             output = value
@@ -172,15 +184,10 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             raise ValueError(msg)
         if check:
             self.log_msg('Checking scan chain %s correctness' % chain_name, level=logging.INFO)
-            scan_check = self._chain_check[chain_name]
-            for name, val_in, val_out in zip(scan_names, value, output):
-                if scan_check[name] and val_in != val_out:
-                    msg = 'Scan check failed: %s/%s = %d != %d' % (chain_name, name, val_out, val_in)
-                    self.log_msg(msg, level=logging.ERROR)
-                    raise ValueError(msg)
+            self.check_scan_success(chain_name, value, output)
             self.log_msg('Scan chain %s checking passed' % chain_name, level=logging.DEBUG)
 
-        for name, val_in, val_out in zip(scan_names, value, output):
+        for name, val_out in zip(self._chain_order[chain_name], output):
             scan_values[name] = val_out
 
         self.log_msg('running callback functions after scan.', level=logging.INFO)
@@ -237,7 +244,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         """
         return self._chain_names
 
-    def get_scan_chain_info(self, chain_name: str) -> Tuple[int, int, bool]:
+    def get_scan_chain_info(self, chain_name: str) -> Dict[str, Any]:
         """Returns information about the given scan chain.
 
         Parameters
@@ -247,14 +254,10 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
 
         Returns
         -------
-        addr : int
-            the chain address.
-        clen : int
-            the chain length.
-        is_read : bool
-            True if this is a read chain.
+        chain_info : Dict[str, Any]
+            the scan chain information dictionary.
         """
-        return self._chain_info[chain_name]
+        return self._scan_config['chains'][chain_name]
 
     def get_scan_names(self, chain_name: str) -> List[str]:
         """Returns a list of scan bus names.  Index 0 is the MSB scan bus.
