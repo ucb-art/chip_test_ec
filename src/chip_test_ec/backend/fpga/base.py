@@ -75,7 +75,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
                 chain_name = parts[0]
                 chain_addr = int(parts[1])
                 chain_len = int(parts[2])
-                chain_is_read = 0 if len(parts) < 4 else int(parts[3]) != 0
+                chain_is_read = False if len(parts) < 4 else int(parts[3]) != 0
                 line_idx += 1
                 chain_order = []
                 chain_value = {}
