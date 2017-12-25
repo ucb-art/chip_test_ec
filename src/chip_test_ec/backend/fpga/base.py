@@ -30,17 +30,17 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
        is the number of chains, the second integer is the address length.
     2. After the first line, the scan chain file contains chain definitions of each
        chain.
-    3. For a chain definition, the first line contains three values separated by
+    3. For a chain definition, the first line contains 3 to 4 values separated by
        space.  The first value is the chain name, the second value is the chain
-       address, the third value is the number of scan bus in this chain.  After that,
-       the chain definition contains scan bus definitions for each scan bus in this
-       chain, MSB first and LSB last.
-    4. A scan bus definition is a single line with 2-4 values.  The first value is
+       address, the third value is the number of scan bus in this chain.  The fourth
+       value, if exist and non-zero, implies that this is a read chain instead of
+       a write chain.
+       After that, the chain definition contains scan bus definitions for each scan
+       bus in this chain, MSB first and LSB last.  Note that Scan bus names must be
+       unique in a chain.
+    4. A scan bus definition is a single line with 2-3 values.  The first value is
        scan bus name, and the second value is the number of bits in the scan bus.
        If exists, the third value is the default scan bus value (defaults to 0).
-       If exists, the fourth value is 0 if this scan bus should be skipped when
-       checking for scan chain correctness, 1 otherwise. Note that Scan bus names
-       must be unique in a chain.
 
     Parameters
     ----------
@@ -75,6 +75,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
                 chain_name = parts[0]
                 chain_addr = int(parts[1])
                 chain_len = int(parts[2])
+                chain_is_read = 0 if len(parts) < 4 else int(parts[3]) != 0
                 line_idx += 1
                 chain_order = []
                 chain_value = {}
@@ -95,14 +96,14 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
                     line_idx += 1
                     chain_nbits += bit_len
 
-                self._chain_info[chain_name] = (chain_addr, chain_nbits)
+                self._chain_info[chain_name] = (chain_addr, chain_nbits, chain_is_read)
                 self._chain_value[chain_name] = chain_value
                 self._chain_order[chain_name] = chain_order
                 self._chain_blen[chain_name] = chain_blen
                 self._chain_check[chain_name] = chain_check
 
         # get chain names, sorted by address
-        chain_sort = [(addr, name) for name, (addr, _) in self._chain_info.items()]
+        chain_sort = [(addr, name) for name, (addr, _, _) in self._chain_info.items()]
         self._chain_names = [item[1] for item in sorted(chain_sort)]
 
     @abc.abstractmethod
@@ -236,7 +237,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         """
         return self._chain_names
 
-    def get_scan_chain_info(self, chain_name: str) -> Tuple[int, int]:
+    def get_scan_chain_info(self, chain_name: str) -> Tuple[int, int, bool]:
         """Returns information about the given scan chain.
 
         Parameters
@@ -250,6 +251,8 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             the chain address.
         clen : int
             the chain length.
+        is_read : bool
+            True if this is a read chain.
         """
         return self._chain_info[chain_name]
 
