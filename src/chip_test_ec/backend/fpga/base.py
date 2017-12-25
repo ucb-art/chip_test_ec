@@ -8,7 +8,7 @@ The FPGASerial class is a class that controls an FPGA using a serial port.
 It can be used to control Xilinx GTX
 """
 
-from typing import List, Callable, Dict, Any
+from typing import List, Callable, Dict, Any, Optional
 
 import os
 import abc
@@ -138,6 +138,30 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             the list of scan out values for each scan bus.
         """
         pass
+
+    @abc.abstractmethod
+    def send_i2c_message(self, i2c_name: str, addr: int, data_frames: List[int],
+                         read_frames: int = 0) -> Optional[List[int]]:
+        """Transmit I2C message using the FPGA.
+
+        Parameters
+        ----------
+        i2c_name : str
+            I2C controller name.
+        addr : int
+            The slave address.
+        data_frames : List[int]
+            The data to write from master to slave.  Index 0 will be written first.  Ignored in read mode.
+        read_frames : int
+            Number of frames to read.  use 0 for write mode.
+
+        Returns
+        -------
+        values : Optional[List[int]]
+            the data frames returned from slave in read mode.  If write mode, this will be empty.
+            If an error occurred, this will be None.
+        """
+        return None
 
     @property
     def is_fake_scan(self) -> bool:
