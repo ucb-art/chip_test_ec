@@ -8,7 +8,7 @@ The FPGASerial class is a class that controls an FPGA using a serial port.
 It can be used to control Xilinx GTX
 """
 
-from typing import List, Callable, Dict, Any, Optional
+from typing import List, Tuple, Callable, Dict, Any, Optional
 
 import os
 import abc
@@ -140,28 +140,33 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def send_i2c_message(self, i2c_name: str, addr: int, data_frames: List[int],
-                         read_frames: int = 0) -> Optional[List[int]]:
-        """Transmit I2C message using the FPGA.
+    def send_i2c_cmds(self,
+                      i2c_name: str,
+                      cmd_list: List[Tuple[int, List[int], int]],
+                      ) -> List[Optional[List[int]]]:
+        """Issue the given I2C commands with the FPGA.
 
         Parameters
         ----------
         i2c_name : str
             I2C controller name.
-        addr : int
-            The slave address.
-        data_frames : List[int]
-            The data to write from master to slave.  Index 0 will be written first.  Ignored in read mode.
-        read_frames : int
-            Number of frames to read.  use 0 for write mode.
+        cmd_list : List[Tuple[int, List[int], int]]
+            List of I2C commands to send.
+
+            Each command is a tuple of slave address, list of data bytes to
+            send, and number of bytes to read.  For a write command, the
+            third argument is 0, For a read command, the third argument is
+            positive, and the second argument is ignored.
 
         Returns
         -------
-        values : Optional[List[int]]
-            the data frames returned from slave in read mode.  If write mode, this will be empty.
-            If an error occurred, this will be None.
+        values : List[Optional[List[int]]]
+            List of data bytes returned from slave for each command.  For a
+            write command, the corresponding return value will be an empty
+            list.  If a command fails, the return value for that command and
+            all subsequent commands will be None.
         """
-        return None
+        return [None] * len(cmd_list)
 
     @property
     def is_fake_scan(self) -> bool:
