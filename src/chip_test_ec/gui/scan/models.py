@@ -59,7 +59,7 @@ class ScanItemModel(QtGui.QStandardItemModel):
         self.sync_flag = True
         self.setHorizontalHeaderLabels(['Scan Name', 'Value'])
         # noinspection PyUnresolvedReferences
-        fpga.add_callback(self.scanChainChanged.emit)
+        fpga.add_callback(chain_name, self.scanChainChanged.emit)
         # noinspection PyUnresolvedReferences
         self.scanChainChanged.connect(self._update)
 

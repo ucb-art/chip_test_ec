@@ -64,7 +64,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         self._chain_value = {}
         self._chain_order = {}
         self._chain_blen = {}
-        self._callbacks = []
+        self._callbacks = {}
         self._fake_scan = fake_scan
         self._chain_names = None
 
@@ -94,6 +94,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             self._chain_value[chain_name] = chain_value
             self._chain_order[chain_name] = chain_order
             self._chain_blen[chain_name] = chain_blen
+            self._callbacks[chain_name] = []
 
         self._chain_names = [item[1] for item in sorted(chain_sort)]
 
@@ -220,7 +221,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             scan_values[name] = val_out
 
         self.log_msg('running callback functions after scan.', level=logging.INFO)
-        for fun in self._callbacks:
+        for fun in self._callbacks[chain_name]:
             fun()
         self.log_msg('scan update done.', level=logging.INFO)
 
@@ -253,15 +254,17 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         with open(fname, 'w') as f:
             yaml.dump(self._chain_value, f)
 
-    def add_callback(self, fun: Callable[[], None]) -> None:
-        """Adds a function which will be called if the scan chain content changed.
+    def add_callback(self, chain_name: str, fun: Callable[[], None]) -> None:
+        """Adds a function which will be called if the given scan chain content changed.
 
         Parameters
         ----------
+        chain_name : str
+            the scan chain name.
         fun : Callable[[], None]
             the function to call if scan chain updated.
         """
-        self._callbacks.append(fun)
+        self._callbacks[chain_name].append(fun)
 
     def get_scan_chain_names(self) -> List[str]:
         """Returns a list of scan chain names.
