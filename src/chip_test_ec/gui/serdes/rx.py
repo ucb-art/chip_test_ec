@@ -151,10 +151,7 @@ class RXControlFrame(QtWidgets.QFrame):
                     name_label = QtWidgets.QLabel(bus_name, parent=self)
                     spin_box = QtWidgets.QSpinBox(parent=self)
                     spin_box.setObjectName(obj_name)
-                    spin_box.setValue(scan_val)
                     spin_box.setSingleStep(1)
-                    # noinspection PyUnresolvedReferences
-                    spin_box.valueChanged[int].connect(self.update_scan)
                     spin_box_list.append(spin_box)
                     if fname:
                         # load characterization file
@@ -165,8 +162,12 @@ class RXControlFrame(QtWidgets.QFrame):
                         offset = int(round(np.min(xvec)))
                         yvec_mono = reg.fit_transform(xvec, mat[:, 1])
                         # set max and min based on characterization file
+                        max_val = int(round(np.max(xvec)))
                         spin_box.setMaximum(int(round(np.max(xvec))))
                         spin_box.setMinimum(offset)
+                        if scan_val < offset or scan_val > max_val:
+                            raise ValueError('Default scan values outside characterization bounds')
+                        spin_box.setValue(scan_val)
 
                         val_text = '%.6g' % (yvec_mono[scan_val - offset])
                         val_label = QtWidgets.QLabel(val_text, parent=self)
@@ -177,7 +178,12 @@ class RXControlFrame(QtWidgets.QFrame):
                     else:
                         spin_box.setMaximum((1 << num_bits) - 1)
                         spin_box.setMinimum(0)
+                        spin_box.setValue(scan_val)
                         widgets_col.append((name_label, spin_box))
+
+                    # noinspection PyUnresolvedReferences
+                    spin_box.valueChanged[int].connect(self.update_scan)
+
             widgets.append(widgets_col)
 
         return widgets, spin_box_list, val_label_lookup
