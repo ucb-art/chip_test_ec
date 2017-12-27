@@ -1,0 +1,23 @@
+# An example scan chain configuration file.
+# number of address bits.
+nbits_addr: 12
+
+# A dictionary of scan chains
+chains:
+  # Chain name
+  rx_eq:
+    # Chain address
+    addr: 2
+    # List of scan buses in this chain.  MSB first and LSB last.
+    content:
+      # value is the default value to initialize to at startup.
+      - {name: code_even_ffe,   nbits: 8, value: 0}
+      - {name: code_odd_ffe,    nbits: 8, value: 0}
+  dig_out:
+    addr: 6
+    # You can define optional chain/scan bus attributes
+    read_only: True
+    content:
+      - {name: rx_dlev, nbits: 32, value: 0}
+      - {name: rx_data, nbits: 32, value: 0}
+      - {name: err_cnt, nbits: 20, value: 0}
