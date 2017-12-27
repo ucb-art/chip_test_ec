@@ -8,6 +8,7 @@ from typing import Optional
 import abc
 import logging
 import traceback
+import socket
 
 try:
     import Gpib
@@ -205,6 +206,67 @@ class GPIBVisa(GPIBBase):
         return result
 
 
+class GPIBTCP(GPIBBase):
+    """This class uses a TCP socket to directly send/receive commands to a GPIB instrument.
+
+    Parameters
+    ----------
+    bid : int
+        the GPIB board ID.
+    pad : int
+        the GPIB primiary address.
+    ip_addr : str
+        the IP address of the instrument.
+    port : int
+        the TCP port number for communication.
+    timeout_ms : int
+        the GPIB timeout, in miliseconds.
+    buffer_size : int
+        the receive buffer size.
+    """
+    def __init__(self, bid: int, pad: int, ip_addr: str, port: int,
+                 timeout_ms: int=10000, buffer_size: int=2048) -> None:
+        GPIBBase.__init__(self, bid, pad, timeout_ms=timeout_ms)
+
+        self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._buf_size = buffer_size
+        self.log_msg('Connecting to IP address %s:%d' % (ip_addr, port))
+        self._s.connect((ip_addr, port))
+        self._ip_addr = ip_addr
+        self._port = port
+
+    def write(self, cmd: str) -> None:
+        """Sends the given GPIB command to the device.
+
+        Parameters
+        ----------
+        cmd : str
+            the GPIB command.
+        """
+        self.log_msg('Sending command %s to device at %s:%d' % (cmd, self._ip_addr, self._port))
+        # noinspection PyUnresolvedReferences
+        self._s.send((cmd + '\n').encode())
+
+    def query(self, cmd: str) -> Optional[str]:
+        """Sends the given GPIB command to the device, then return device output as a string.
+
+        Parameters
+        ----------
+        cmd : str
+            the GPIB command.
+
+        Returns
+        -------
+        output : Optional[str]
+            the device output.  None if an error occurred.
+        """
+        self.log_msg('Sending query %s to device at %s:%d' % (cmd, self._ip_addr, self._port))
+        # noinspection PyUnresolvedReferences
+        result = self._s.recv(self._buf_size).decode()
+        self.log_msg('Received output %s from device at %s:%d' % (result, self._ip_addr, self._port))
+        return result
+
+
 class GPIBController(LoggingBase):
     """This is the base GPIB controller class.
 
@@ -220,14 +282,20 @@ class GPIBController(LoggingBase):
         the GPIB primiary address.
     timeout_ms : int
         the GPIB timeout, in miliseconds.
-    use_visa : bool
+    **kwargs
+        Additional optional arguments.
         True to prioritize using National Instruments visa package.
     """
-    def __init__(self, bid: int, pad: int, timeout_ms: int=10000, use_visa: bool=True) -> None:
+    def __init__(self, bid: int, pad: int, timeout_ms: int=10000, **kwargs) -> None:
         LoggingBase.__init__(self)
 
         self._dev = None
-        if use_visa:
+        if 'ip_addr' in kwargs:
+            new_kwargs = kwargs.copy()
+            ip_addr = new_kwargs.pop('ip_addr')
+            port = new_kwargs.pop('port')
+            self._dev = GPIBTCP(bid, pad, ip_addr, port, timeout_ms=timeout_ms, **new_kwargs)
+        elif kwargs.get('use_visa', True):
             if visa is None:
                 self.log_msg('Failed to import visa, revert to Gpib.')
             else:
