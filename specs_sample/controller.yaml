@@ -26,22 +26,42 @@ scan:
 
 # GPIB devices specifications
 gpib:
-  # device name
+  # sample device using PyVISA API.
   oscope:
-    # O-scope controller module name
+    # controller module name
     module: 'chip_test_ec.backend.gpib.oscope'
-    # O-scope controller class name
+    # controller class name
     class: 'AG54855A'
-    # GPIB device parameters
+    # controller parameters
     params:
-      # O-scope board ID
+      # device board ID
       bid: 1
-      # O-scope primiary address
+      # device primiary address
       pad: 1
-      # GPIB timeout
+      # device timeout
       timeout_ms: 10000
       # True to use NI-VISA backend when available (instead of linux-gpib).
       use_visa: True
+  # sample device using a direct TCP connection.
+  siggen:
+    # controller module name
+    module: 'chip_test_ec.backend.gpib.siggen'
+    # controller class name
+    class: 'AG81142A'
+    # controller parameters
+    params:
+      # board ID
+      bid: -1
+      # primiary address
+      pad: -1
+      # GPIB timeout
+      timeout_ms: 10000
+      # device IP address
+      ip_addr: '169.254.122.10'
+      # device TCP port
+      port: 5025
+      # TCP buffer size
+      buffer_size: 2048
 
 # True to create a fake Controller object that doesn't talk with anything.
 # Used mainly for debugging.
