@@ -5,12 +5,15 @@
 """
 
 import os
+import pkg_resources
 
 import yaml
 import numpy as np
 from sklearn.isotonic import IsotonicRegression
 
 from PyQt5 import QtWidgets, QtCore, QtGui
+
+activity_gif = pkg_resources.resource_filename('chip_test_ec.gui', os.path.join('resources', 'ajax-loader.gif'))
 
 
 class RXControlFrame(QtWidgets.QFrame):
@@ -52,8 +55,11 @@ class RXControlFrame(QtWidgets.QFrame):
         self.disp_widgets = self.create_displays(self.ctrl.fpga, displays, font_size)
 
         # create panel controls
-        self.refresh_rate = 200
-        pc_frame, self.update_button = self.create_panel_controls(self.refresh_rate)
+        self.refresh_timer = QtCore.QTimer(parent=self)
+        self.refresh_timer.setInterval(200)
+        # noinspection PyUnresolvedReferences
+        self.refresh_timer.timeout.connect(self.update_display)
+        pc_frame, self.update_button, self.activity_movie = self.create_panel_controls(self.refresh_timer)
 
         # populate frame
         self.lay = QtWidgets.QVBoxLayout()
@@ -110,7 +116,7 @@ class RXControlFrame(QtWidgets.QFrame):
         frame.setLayout(lay)
         return frame, lay
 
-    def create_panel_controls(self, refresh_rate):
+    def create_panel_controls(self, refresh_timer):
         frame, lay = self.create_sub_frame()
         step_box = QtWidgets.QSpinBox(parent=self)
         step_box.setSingleStep(1)
@@ -126,7 +132,7 @@ class RXControlFrame(QtWidgets.QFrame):
         update_box.setSingleStep(1)
         update_box.setMinimum(0)
         update_box.setMaximum(5000)
-        update_box.setValue(refresh_rate)
+        update_box.setValue(refresh_timer.interval())
         # noinspection PyUnresolvedReferences
         update_box.valueChanged[int].connect(self.update_refresh_rate)
         update_label = QtWidgets.QLabel('Refresh rate (ms):', parent=self)
@@ -137,7 +143,10 @@ class RXControlFrame(QtWidgets.QFrame):
         # noinspection PyUnresolvedReferences
         check_box.stateChanged[int].connect(self.update_refresh)
 
+        activity_movie = QtGui.QMovie(activity_gif, parent=self)
+        activity_movie.jumpToNextFrame()
         update_button = QtWidgets.QPushButton('Update', parent=self)
+        update_button.setIcon(QtGui.QIcon(activity_movie.currentPixmap()))
         update_button.setEnabled(True)
         # noinspection PyUnresolvedReferences
         update_button.clicked.connect(self.update_display)
@@ -149,7 +158,7 @@ class RXControlFrame(QtWidgets.QFrame):
         lay.addWidget(check_box, 0, 4)
         lay.addWidget(update_button, 0, 5)
 
-        return frame, update_button
+        return frame, update_button, activity_movie
 
     def create_displays(self, fpga, displays, font_size):
         disp_font = QtGui.QFont('Monospace')
@@ -269,15 +278,17 @@ class RXControlFrame(QtWidgets.QFrame):
     def update_refresh(self, val):
         if val == QtCore.Qt.Checked:
             self.update_button.setEnabled(False)
-            self.update_button.setText('|')
+            self.refresh_timer.start()
         else:
             self.update_button.setEnabled(True)
             self.update_button.setText('Update')
+            self.refresh_timer.stop()
 
     @QtCore.pyqtSlot('int')
     def update_refresh_rate(self, val):
-        self.refresh_rate = val
+        self.refresh_timer.setInterval(val)
 
     @QtCore.pyqtSlot()
     def update_display(self):
-        pass
+        self.activity_movie.jumpToNextFrame()
+        self.update_button.setIcon(QtGui.QIcon(self.activity_movie.currentPixmap()))

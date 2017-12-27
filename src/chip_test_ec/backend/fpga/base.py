@@ -318,8 +318,15 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             msg = 'Cannot find scan bus named %s in chain %s' % (bus_name, chain_name)
             self.log_msg(msg, level=logging.ERROR)
             raise ValueError(msg)
+
+        num_bits = self._chain_blen[chain_name][bus_name]
+        if value < 0 or value >= (1 << num_bits):
+            msg = 'Scan value %d illegal for scan bus %s.%s' % (value, chain_name, bus_name)
+            self.log_msg(msg, level=logging.ERROR)
+            raise ValueError(msg)
+
         self.log_msg('Scan: setting {}/{} to {}'.format(chain_name, bus_name, value))
-        self._chain_value[chain_name][bus_name] = value
+        chain_table[bus_name] = value
 
     def get_scan(self, chain_name: str, bus_name: str) -> int:
         """Returns given scan bus value.
