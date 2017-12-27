@@ -58,6 +58,11 @@ class GPIBBase(LoggingBase, metaclass=abc.ABCMeta):
         return self._timeout_ms
 
     @abc.abstractmethod
+    def close(self):
+        """Close resources associated with this GPIB device."""
+        pass
+
+    @abc.abstractmethod
     def write(self, cmd: str) -> None:
         """Sends the given GPIB command to the device.
 
@@ -101,6 +106,11 @@ class GPIBBasic(GPIBBase):
         GPIBBase.__init__(self, bid, pad, timeout_ms=timeout_ms)
         self._dev = Gpib.Gpib(bid, pad)
         self._dev.clear()
+
+    def close(self):
+        """Close resources associated with this GPIB device."""
+        self.log_msg('Closing GPIB device (%d, %d)' % (self.bid, self.pad))
+        pass
 
     def write(self, cmd: str) -> None:
         """Sends the given GPIB command to the device.
@@ -174,6 +184,11 @@ class GPIBVisa(GPIBBase):
         self._dev = self._rm.open_resource(sid)
         self._dev.timeout = timeout_ms
 
+    def close(self):
+        """Close resources associated with this GPIB device."""
+        self.log_msg('Closing GPIB device (%d, %d)' % (self.bid, self.pad))
+        pass
+
     def write(self, cmd: str) -> None:
         """Sends the given GPIB command to the device.
 
@@ -234,6 +249,11 @@ class GPIBTCP(GPIBBase):
         self._s.connect((ip_addr, port))
         self._ip_addr = ip_addr
         self._port = port
+
+    def close(self):
+        """Close resources associated with this GPIB device."""
+        self.log_msg('Closing GPIB device at %s:%d' % (self._ip_addr, self._port))
+        self._s.close()
 
     def write(self, cmd: str) -> None:
         """Sends the given GPIB command to the device.
@@ -306,6 +326,10 @@ class GPIBController(LoggingBase):
             if Gpib is None:
                 raise ImportError('Failed import either the visa package or the Gpib package.')
             self._dev = GPIBBasic(bid, pad, timeout_ms=timeout_ms)
+
+    def close(self):
+        """Close resources associated with this GPIB device."""
+        self._dev.close()
 
     def write(self, cmd: str) -> None:
         """Sends the given GPIB command to the device.

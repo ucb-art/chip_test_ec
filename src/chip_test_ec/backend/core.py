@@ -42,6 +42,12 @@ class Controller(object):
                 gpib_cls = import_class(mod_name, cls_name)
                 self._gpib_devices[name] = gpib_cls(**params)
 
+    def close(self):
+        """Release resources associated with this controller."""
+        self._fpga.close()
+        for name, dev in self._gpib_devices.items():
+            dev.close()
+
     @property
     def fpga(self) -> Optional[FPGABase]:
         return self._fpga

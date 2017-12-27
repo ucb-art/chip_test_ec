@@ -91,6 +91,7 @@ class ScanFrame(QtWidgets.QFrame):
 
         # create scan models and configure chain selection box
         self.models = []
+        self.model_idx = 0
         chain_sel = QtWidgets.QComboBox()
         sel_label = QtWidgets.QLabel('&Scan Chain:')
         sel_label.setBuddy(chain_sel)
@@ -107,7 +108,7 @@ class ScanFrame(QtWidgets.QFrame):
         self.proxy.setFilterKeyColumn(0)
         filter_text = QtWidgets.QLineEdit()
         # noinspection PyUnresolvedReferences
-        filter_text.textChanged[str].connect(proxy.update_filter)
+        filter_text.textChanged[str].connect(self.proxy.update_filter)
         filter_label = QtWidgets.QLabel('&Filter:')
         filter_label.setBuddy(filter_text)
 
@@ -124,7 +125,7 @@ class ScanFrame(QtWidgets.QFrame):
         # configure step box, sync checkbox, and buttons
         checkbox = QtWidgets.QCheckBox('Disable sync')
         # noinspection PyUnresolvedReferences
-        checkbox.stateChanged[int].connect(model.set_sync_flag)
+        checkbox.stateChanged[int].connect(self.set_model_sync_flag)
         self.stepbox = QtWidgets.QSpinBox()
         self.stepbox.setMaximum(max_step)
         self.stepbox.setValue(1)
@@ -166,7 +167,12 @@ class ScanFrame(QtWidgets.QFrame):
 
     @QtCore.pyqtSlot(int)
     def change_model(self, idx):
+        self.model_idx = idx
         self.proxy.setSourceModel(self.models[idx])
+
+    @QtCore.pyqtSlot(int)
+    def set_model_sync_flag(self, state):
+        self.models[self.model_idx].set_sync_flag(state)
 
     @QtCore.pyqtSlot()
     def set_from_file(self):

@@ -31,6 +31,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, ctrl: Controller, gui_specs: Dict[str, Any], conf_path: str, font_size: int=11) -> None:
         super(MainWindow, self).__init__()
 
+        self.ctrl = ctrl
+
         # set font
         font = QtGui.QFont()
         font.setPointSize(font_size)
@@ -66,6 +68,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.setCentralWidget(master)
         self.center()
+
+    def closeEvent(self, event):
+        self.ctrl.close()
+        event.accept()
 
     def center(self):
         window_gm = self.frameGeometry()
