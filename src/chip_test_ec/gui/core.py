@@ -43,7 +43,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.logger = LogWidget()
 
-        frames = [ScanFrame(ctrl.scan, font_size=font_size),
+        frames = [ScanFrame(ctrl.fpga, font_size=font_size),
                   GPIBFrame(ctrl.gpib_table, self.logger),
                   ]
         names = ['Scan',

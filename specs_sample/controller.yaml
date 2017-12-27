@@ -32,14 +32,16 @@ gpib:
     module: 'chip_test_ec.backend.gpib.oscope'
     # O-scope controller class name
     class: 'AG54855A'
-    # O-scope board ID
-    bid: 1
-    # O-scope primiary address
-    pad: 1
-    # GPIB timeout
-    timeout_ms: 10000
-    # True to use NI-VISA backend when available (instead of linux-gpib).
-    use_visa: True
+    # GPIB device parameters
+    params:
+      # O-scope board ID
+      bid: 1
+      # O-scope primiary address
+      pad: 1
+      # GPIB timeout
+      timeout_ms: 10000
+      # True to use NI-VISA backend when available (instead of linux-gpib).
+      use_visa: True
 
 # True to create a fake Controller object that doesn't talk with anything.
 # Used mainly for debugging.
