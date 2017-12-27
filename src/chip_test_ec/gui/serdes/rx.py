@@ -51,6 +51,10 @@ class RXControlFrame(QtWidgets.QFrame):
         # create displays
         self.disp_widgets = self.create_displays(self.ctrl.fpga, displays, font_size)
 
+        # create panel controls
+        self.refresh_rate = 200
+        pc_frame, self.update_button = self.create_panel_controls(self.refresh_rate)
+
         # populate frame
         self.lay = QtWidgets.QVBoxLayout()
         self.lay.setSpacing(0)
@@ -91,6 +95,9 @@ class RXControlFrame(QtWidgets.QFrame):
             col_idx += 2
         self.lay.addWidget(ctrl_frame)
 
+        # add configuration panel
+        self.lay.addWidget(pc_frame)
+
         self.setLayout(self.lay)
 
     def create_sub_frame(self):
@@ -102,6 +109,47 @@ class RXControlFrame(QtWidgets.QFrame):
         lay = QtWidgets.QGridLayout()
         frame.setLayout(lay)
         return frame, lay
+
+    def create_panel_controls(self, refresh_rate):
+        frame, lay = self.create_sub_frame()
+        step_box = QtWidgets.QSpinBox(parent=self)
+        step_box.setSingleStep(1)
+        step_box.setMinimum(1)
+        step_box.setMaximum(128)
+        step_box.setValue(1)
+        # noinspection PyUnresolvedReferences
+        step_box.valueChanged[int].connect(self.update_step_size)
+        step_label = QtWidgets.QLabel('Step size:', parent=self)
+        step_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        update_box = QtWidgets.QSpinBox(parent=self)
+        update_box.setSingleStep(1)
+        update_box.setMinimum(0)
+        update_box.setMaximum(5000)
+        update_box.setValue(refresh_rate)
+        # noinspection PyUnresolvedReferences
+        update_box.valueChanged[int].connect(self.update_refresh_rate)
+        update_label = QtWidgets.QLabel('Refresh rate (ms):', parent=self)
+        update_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+
+        check_box = QtWidgets.QCheckBox('Real-time refresh', parent=self)
+        check_box.setCheckState(QtCore.Qt.Unchecked)
+        # noinspection PyUnresolvedReferences
+        check_box.stateChanged[int].connect(self.update_refresh)
+
+        update_button = QtWidgets.QPushButton('Update', parent=self)
+        update_button.setEnabled(True)
+        # noinspection PyUnresolvedReferences
+        update_button.clicked.connect(self.update_display)
+
+        lay.addWidget(step_label, 0, 0)
+        lay.addWidget(step_box, 0, 1)
+        lay.addWidget(update_label, 0, 2)
+        lay.addWidget(update_box, 0, 3)
+        lay.addWidget(check_box, 0, 4)
+        lay.addWidget(update_button, 0, 5)
+
+        return frame, update_button
 
     def create_displays(self, fpga, displays, font_size):
         disp_font = QtGui.QFont('Monospace')
@@ -115,6 +163,7 @@ class RXControlFrame(QtWidgets.QFrame):
             scan_val = fpga.get_scan(chain_name, bus_name)
             des_num = 1 if len(entry) < 4 else entry[3]
             label = QtWidgets.QLabel(bus_name, parent=self)
+            label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
             if disp_type == 'int':
                 disp_str = str(scan_val)
             else:
@@ -125,6 +174,7 @@ class RXControlFrame(QtWidgets.QFrame):
             if des_num > 1:
                 for idx in range(des_num):
                     label = QtWidgets.QLabel(bus_name + ('[%d]' % idx), parent=self)
+                    label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
                     disp_field = QtWidgets.QLabel(disp_str[des_num - idx - 1::des_num],
                                                   parent=self)
                     disp_field.setFont(disp_font)
@@ -176,6 +226,7 @@ class RXControlFrame(QtWidgets.QFrame):
 
                         val_text = '%.4e' % (yvec_mono[scan_val - offset])
                         val_label = QtWidgets.QLabel(val_text, parent=self)
+                        val_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
                         val_label_lookup[obj_name] = (val_label, offset, yvec_mono)
                         # noinspection PyUnresolvedReferences
                         spin_box.valueChanged[int].connect(self.update_label)
@@ -195,7 +246,10 @@ class RXControlFrame(QtWidgets.QFrame):
 
     @QtCore.pyqtSlot('int')
     def update_scan(self, val):
-        obj_name = self.sender().objectName()
+        send_obj = self.sender()
+        if isinstance(send_obj, QtWidgets.QCheckBox):
+            val = 1 if val == QtCore.Qt.Checked else 0
+        obj_name = send_obj.objectName()
         chain_name, bus_name = obj_name.split('.', 1)
         self.ctrl.fpga.set_scan(chain_name, bus_name, val)
         self.ctrl.fpga.update_scan(chain_name)
@@ -205,3 +259,25 @@ class RXControlFrame(QtWidgets.QFrame):
         obj_name = self.sender().objectName()
         val_label, offset, yvec = self.val_lookup[obj_name]
         val_label.setText('%.4e' % yvec[val - offset])
+
+    @QtCore.pyqtSlot('int')
+    def update_step_size(self, val):
+        for spin_box in self.spin_box_list:
+            spin_box.setSingleStep(val)
+
+    @QtCore.pyqtSlot('int')
+    def update_refresh(self, val):
+        if val == QtCore.Qt.Checked:
+            self.update_button.setEnabled(False)
+            self.update_button.setText('|')
+        else:
+            self.update_button.setEnabled(True)
+            self.update_button.setText('Update')
+
+    @QtCore.pyqtSlot('int')
+    def update_refresh_rate(self, val):
+        self.refresh_rate = val
+
+    @QtCore.pyqtSlot()
+    def update_display(self):
+        pass
