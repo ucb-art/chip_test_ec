@@ -68,7 +68,7 @@ class RXControlFrame(QtWidgets.QFrame):
         # add displays
         disp_frame, disp_lay = self.create_sub_frame()
         row_idx, col_idx = 0, 0
-        for label, disp_field in self.disp_widgets:
+        for label, disp_field, _, _, _, _, _ in self.disp_widgets:
             disp_lay.addWidget(label, row_idx, col_idx)
             disp_lay.addWidget(disp_field, row_idx, col_idx + 1)
             row_idx += 1
@@ -179,15 +179,16 @@ class RXControlFrame(QtWidgets.QFrame):
                 disp_str = np.binary_repr(scan_val, num_bits)
             disp_field = QtWidgets.QLabel(disp_str, parent=self)
             disp_field.setFont(disp_font)
-            widgets.append((label, disp_field))
+            widgets.append((label, disp_field, chain_name, bus_name, disp_type, num_bits, (0, 1)))
             if des_num > 1:
                 for idx in range(des_num):
                     label = QtWidgets.QLabel(bus_name + ('[%d]' % idx), parent=self)
                     label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-                    disp_field = QtWidgets.QLabel(disp_str[des_num - idx - 1::des_num],
+                    start = des_num - idx - 1
+                    disp_field = QtWidgets.QLabel(disp_str[start::des_num],
                                                   parent=self)
                     disp_field.setFont(disp_font)
-                    widgets.append((label, disp_field))
+                    widgets.append((label, disp_field, chain_name, bus_name, disp_type, num_bits, (start, des_num)))
 
         return widgets
 
@@ -290,5 +291,21 @@ class RXControlFrame(QtWidgets.QFrame):
 
     @QtCore.pyqtSlot()
     def update_display(self):
+        update_chains = set()
+        for (_, _, chain_name, _, _, _, _) in self.disp_widgets:
+            update_chains.add(chain_name)
+
+        fpga = self.ctrl.fpga
+        for chain_name in update_chains:
+            fpga.update_scan(chain_name)
+
+        for (_, disp_field, chain_name, bus_name, disp_type, nbits, (start, des_num)) in self.disp_widgets:
+            scan_val = fpga.get_scan(chain_name, bus_name)
+            if disp_type == 'int':
+                disp_str = str(scan_val)
+            else:
+                disp_str = np.binary_repr(scan_val, nbits)[start::des_num]
+            disp_field.setText(disp_str)
+
         self.activity_movie.jumpToNextFrame()
         self.update_button.setIcon(QtGui.QIcon(self.activity_movie.currentPixmap()))
