@@ -52,51 +52,56 @@ class RXControlFrame(QtWidgets.QFrame):
         self.disp_widgets = self.create_displays(self.ctrl.fpga, displays, font_size)
 
         # populate frame
-        self.lay = QtWidgets.QGridLayout()
+        self.lay = QtWidgets.QVBoxLayout()
+        self.lay.setSpacing(0)
+        self.lay.setContentsMargins(0, 0, 0, 0)
         # add displays
+        disp_frame, disp_lay = self.create_sub_frame()
         row_idx, col_idx = 0, 0
         for label, disp_field in self.disp_widgets:
-            self.lay.addWidget(label, row_idx, col_idx)
-            self.lay.addWidget(disp_field, row_idx, col_idx + 1)
+            disp_lay.addWidget(label, row_idx, col_idx)
+            disp_lay.addWidget(disp_field, row_idx, col_idx + 1)
             row_idx += 1
             if row_idx == num_rows_disp:
                 row_idx = 0
                 col_idx += 2
-
-        # draw separator
-        self.lay.addWidget(self.create_line_widget(), num_rows_disp, 0, 1, -1)
+        self.lay.addWidget(disp_frame)
 
         # add controls
-        row_idx, col_idx = num_rows_disp + 1, 0
+        ctrl_frame, ctrl_lay = self.create_sub_frame()
+        row_idx, col_idx = 0, 0
         for widgets_col in ctrl_widgets:
             for widgets in widgets_col:
                 if len(widgets) == 1:
                     # single checkbox
-                    self.lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
+                    ctrl_lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
                     row_idx += 1
                 elif len(widgets) == 2:
                     # label and spinbox
-                    self.lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
-                    self.lay.addWidget(widgets[1], row_idx + 1, col_idx)
+                    ctrl_lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
+                    ctrl_lay.addWidget(widgets[1], row_idx + 1, col_idx)
                     row_idx += 2
                 else:
                     # label, spinbox, and value label
-                    self.lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
-                    self.lay.addWidget(widgets[1], row_idx + 1, col_idx)
-                    self.lay.addWidget(widgets[2], row_idx + 1, col_idx + 1)
+                    ctrl_lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
+                    ctrl_lay.addWidget(widgets[1], row_idx + 1, col_idx)
+                    ctrl_lay.addWidget(widgets[2], row_idx + 1, col_idx + 1)
                     row_idx += 2
-            row_idx = num_rows_disp + 1
+            row_idx = 0
             col_idx += 2
+        self.lay.addWidget(ctrl_frame)
 
         self.setLayout(self.lay)
 
-    def create_line_widget(self):
-        line = QtWidgets.QFrame(parent=self)
-        line.setLineWidth(2)
-        line.setMidLineWidth(1)
-        line.setFrameShape(QtWidgets.QFrame.HLine)
-        line.setFrameShadow(QtWidgets.QFrame.Raised)
-        return line
+    def create_sub_frame(self):
+        frame = QtWidgets.QFrame(parent=self)
+        frame.setContentsMargins(0, 0, 0, 0)
+        frame.setLineWidth(1)
+        frame.setMidLineWidth(1)
+        frame.setFrameStyle(QtWidgets.QFrame.Box | QtWidgets.QFrame.Raised)
+        lay = QtWidgets.QGridLayout()
+        frame.setLayout(lay)
+        return frame, lay
 
     def create_displays(self, fpga, displays, font_size):
         disp_font = QtGui.QFont('Monospace')
@@ -169,7 +174,7 @@ class RXControlFrame(QtWidgets.QFrame):
                             raise ValueError('Default scan values outside characterization bounds')
                         spin_box.setValue(scan_val)
 
-                        val_text = '%.6g' % (yvec_mono[scan_val - offset])
+                        val_text = '%.4e' % (yvec_mono[scan_val - offset])
                         val_label = QtWidgets.QLabel(val_text, parent=self)
                         val_label_lookup[obj_name] = (val_label, offset, yvec_mono)
                         # noinspection PyUnresolvedReferences
@@ -199,4 +204,4 @@ class RXControlFrame(QtWidgets.QFrame):
     def update_label(self, val):
         obj_name = self.sender().objectName()
         val_label, offset, yvec = self.val_lookup[obj_name]
-        val_label.setText('%.6g' % yvec[val - offset])
+        val_label.setText('%.4e' % yvec[val - offset])
