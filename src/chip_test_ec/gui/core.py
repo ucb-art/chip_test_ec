@@ -12,6 +12,7 @@ from .gpib import GPIBFrame
 
 # type check imports
 from ..backend.core import Controller
+from ..util.core import import_class
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -51,6 +52,17 @@ class MainWindow(QtWidgets.QMainWindow):
         names = ['Scan',
                  'GPIB',
                  ]
+
+        # add custom frames
+        for gui_name in sorted(gui_specs.keys()):
+            gui_config = gui_specs[gui_name]
+            mod_name = gui_config['module']
+            cls_name = gui_config['class']
+            specs_fname = gui_config['specs_fname']
+            gui_cls = import_class(mod_name, cls_name)
+            gui_frame = gui_cls(ctrl, specs_fname, font_size=font_size)
+            frames.append(gui_frame)
+            names.append(gui_name)
 
         for f, n in zip(frames, names):
             scroll = QtWidgets.QScrollArea()

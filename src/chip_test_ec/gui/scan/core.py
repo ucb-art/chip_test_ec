@@ -141,7 +141,7 @@ class ScanFrame(QtWidgets.QFrame):
         # noinspection PyUnresolvedReferences
         set_button.clicked.connect(self.set_from_file)
 
-        # the bottom frame
+        # populate frame
         self.lay = QtWidgets.QGridLayout()
         self.lay.addWidget(sel_label, 0, 0)
         self.lay.addWidget(chain_sel, 0, 1, 1, 2)
