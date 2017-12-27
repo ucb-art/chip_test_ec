@@ -65,8 +65,6 @@ class MainWindow(QtWidgets.QMainWindow):
             names.append(gui_name)
 
         for f, n in zip(frames, names):
-            scroll = QtWidgets.QScrollArea()
-            scroll.setWidget(f)
             tabs.addTab(f, n)
 
         master = QtWidgets.QFrame()

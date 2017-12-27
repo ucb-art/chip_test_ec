@@ -121,6 +121,7 @@ class ScanFrame(QtWidgets.QFrame):
         self.view.header().setSortIndicator(0, QtCore.Qt.AscendingOrder)
         self.view.header().setSectionsClickable(True)
         self.view.header().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
+        self.view.header().setStretchLastSection(False)
         self.view.setModel(self.proxy)
 
         # configure step box, sync checkbox, and buttons

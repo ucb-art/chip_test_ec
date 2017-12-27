@@ -62,8 +62,12 @@ class RXControlFrame(QtWidgets.QFrame):
             if row_idx == num_rows_disp:
                 row_idx = 0
                 col_idx += 2
+
+        # draw separator
+        self.lay.addWidget(self.create_line_widget(), num_rows_disp, 0, 1, -1)
+
         # add controls
-        row_idx, col_idx = num_rows_disp, 0
+        row_idx, col_idx = num_rows_disp + 1, 0
         for widgets_col in ctrl_widgets:
             for widgets in widgets_col:
                 if len(widgets) == 1:
@@ -81,10 +85,18 @@ class RXControlFrame(QtWidgets.QFrame):
                     self.lay.addWidget(widgets[1], row_idx + 1, col_idx)
                     self.lay.addWidget(widgets[2], row_idx + 1, col_idx + 1)
                     row_idx += 2
-            row_idx = 0
+            row_idx = num_rows_disp + 1
             col_idx += 2
 
         self.setLayout(self.lay)
+
+    def create_line_widget(self):
+        line = QtWidgets.QFrame(parent=self)
+        line.setLineWidth(2)
+        line.setMidLineWidth(1)
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setFrameShadow(QtWidgets.QFrame.Raised)
+        return line
 
     def create_displays(self, fpga, displays, font_size):
         disp_font = QtGui.QFont('Monospace')
@@ -130,7 +142,8 @@ class RXControlFrame(QtWidgets.QFrame):
                 if num_bits == 1:
                     check_box = QtWidgets.QCheckBox(bus_name, parent=self)
                     check_box.setObjectName(obj_name)
-                    check_box.setCheckState(scan_val)
+                    check_state = QtCore.Qt.Checked if scan_val else QtCore.Qt.Unchecked
+                    check_box.setCheckState(check_state)
                     # noinspection PyUnresolvedReferences
                     check_box.stateChanged[int].connect(self.update_scan)
                     widgets_col.append((check_box, ))
