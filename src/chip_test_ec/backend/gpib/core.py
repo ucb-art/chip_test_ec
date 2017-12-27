@@ -201,7 +201,7 @@ class GPIBVisa(GPIBBase):
         """
         self.log_msg('Sending query %s to device (%d, %d)' % (cmd, self.bid, self.pad))
         # noinspection PyUnresolvedReferences
-        result = self._dev.query()
+        result = self._dev.query(cmd)
         self.log_msg('Receive output %s from device (%d, %d)' % (result, self.bid, self.pad))
         return result
 
@@ -261,6 +261,7 @@ class GPIBTCP(GPIBBase):
             the device output.  None if an error occurred.
         """
         self.log_msg('Sending query %s to device at %s:%d' % (cmd, self._ip_addr, self._port))
+        self.write(cmd)
         # noinspection PyUnresolvedReferences
         result = self._s.recv(self._buf_size).decode()
         self.log_msg('Received output %s from device at %s:%d' % (result, self._ip_addr, self._port))
