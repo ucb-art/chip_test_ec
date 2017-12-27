@@ -7,6 +7,7 @@ import os
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+from ..base.fields import BigIntSpinbox
 from .models import ScanItemModel, ScanSortFilterProxyModel
 
 
@@ -21,9 +22,9 @@ class ScanDelegate(QtWidgets.QStyledItemDelegate):
 
     def createEditor(self, parent, option, index):
         nbits = index.data(QtCore.Qt.UserRole)
-        nmax = 2**nbits - 1
+        nmax = (1 << nbits) - 1
 
-        editor = QtWidgets.QSpinBox(parent)
+        editor = BigIntSpinbox(parent)
         editor.setFrame(False)
         editor.setMinimum(0)
         editor.setMaximum(nmax)

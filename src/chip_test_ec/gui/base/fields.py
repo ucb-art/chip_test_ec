@@ -9,7 +9,7 @@ import os
 import math
 from collections import deque
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 
 class FileField(QtWidgets.QFrame):
@@ -22,7 +22,8 @@ class FileField(QtWidgets.QFrame):
     get_dir : bool
         True if this field is for selecting a directory.
     """
-    def __init__(self, init_text: str, get_dir: bool=False) -> None:
+
+    def __init__(self, init_text: str, get_dir: bool = False) -> None:
         super(FileField, self).__init__()
 
         self.edit = QtWidgets.QLineEdit(init_text)
@@ -87,10 +88,10 @@ class MetricSpinBox(QtWidgets.QDoubleSpinBox):
         exp = int(math.floor(math.log10(vstep)))
         if exp < self.prefix_exp[0] or exp > self.prefix_exp[-1]:
             prefix = 'e{}'.format(exp)
-            self.scale = 10.0**exp
+            self.scale = 10.0 ** exp
         elif exp in self.prefix_exp:
             prefix = self.prefix_names[self.prefix_exp.index(exp)]
-            self.scale = 10.0**exp
+            self.scale = 10.0 ** exp
         else:
             idx = None
             for i in range(len(self.prefix_exp)):
@@ -100,9 +101,9 @@ class MetricSpinBox(QtWidgets.QDoubleSpinBox):
             prefix = self.prefix_names[idx]
             diff = self.prefix_exp[idx] - exp
             precision = max(precision, diff)
-            self.scale = 10.0**self.prefix_exp[idx]
+            self.scale = 10.0 ** self.prefix_exp[idx]
 
-        vstep = int(round(vstep / self.scale * 10.0**precision)) * 10.0**(-precision)
+        vstep = int(round(vstep / self.scale * 10.0 ** precision)) * 10.0 ** (-precision)
         vmin /= self.scale
         vmax /= self.scale
         self.setSingleStep(vstep)
@@ -119,6 +120,120 @@ class MetricSpinBox(QtWidgets.QDoubleSpinBox):
         super(MetricSpinBox, self).setValue(val / self.scale)
 
 
+class QBigIntValidator(QtGui.QValidator):
+    """A validator for big integers."""
+    def __init__(self, vmin, vmax, parent=None):
+        super(QBigIntValidator, self).__init__(parent)
+        self._min = vmin
+        self._max = vmax
+
+    # noinspection PyShadowingBuiltins
+    def validate(self, input, pos):
+        if not input:
+            return QtGui.QValidator.Intermediate, input, pos
+        try:
+            val = int(input)
+        except ValueError:
+            return QtGui.QValidator.Invalid, input, pos
+
+        if val > self._max:
+            return QtGui.QValidator.Invalid, input, pos
+        elif val < self._min:
+            return QtGui.QValidator.Intermediate, input, pos
+        else:
+            return QtGui.QValidator.Acceptable, input, pos
+
+    # noinspection PyShadowingBuiltins
+    def fixup(self, input):
+        if not input:
+            return input
+        try:
+            val = int(input)
+        except ValueError:
+            return str((self._min + self._max) // 2)
+        if val > self._max:
+            return str(self._max)
+        return input
+
+    # noinspection PyPep8Naming
+    def setRange(self, vmin, vmax):
+        self._min = vmin
+        self._max = vmax
+
+
+class BigIntSpinbox(QtWidgets.QAbstractSpinBox):
+    """An integer spin box that supports arbitrary integers of given length.
+
+    This implementation is based on the solution here:
+    https://stackoverflow.com/questions/15654769/
+    how-to-subclass-qspinbox-so-it-could-have-int64-values-as-maxium-and-minimum
+    """
+
+    valueChanged = QtCore.pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super(BigIntSpinbox, self).__init__(parent)
+
+        self._singleStep = 1
+        self._minimum = 0
+        self._maximum = 100
+        self._val = 0
+        self._validator = QBigIntValidator(self._minimum, self._maximum, self)
+        self.lineEdit().setValidator(self._validator)
+        # noinspection PyUnresolvedReferences
+        self.lineEdit().editingFinished.connect(self.setText)
+
+    def value(self):
+        return self._val
+
+    # noinspection PyPep8Naming
+    @QtCore.pyqtSlot()
+    def setText(self):
+        self.setValue(int(self.lineEdit().text()))
+
+    # noinspection PyPep8Naming
+    def setValue(self, value):
+        self._val = value
+        self.lineEdit().setText(str(value))
+        # noinspection PyUnresolvedReferences
+        self.valueChanged.emit(self._val)
+
+    # noinspection PyPep8Naming
+    def singleStep(self):
+        return self._singleStep
+
+    # noinspection PyPep8Naming
+    def setSingleStep(self, singleStep):
+        assert isinstance(singleStep, int)
+        # don't use negative values
+        self._singleStep = abs(singleStep)
+
+    def minimum(self):
+        return self._minimum
+
+    # noinspection PyPep8Naming
+    def setMinimum(self, minimum):
+        if isinstance(minimum, int):
+            self._minimum = minimum
+            self._validator.setRange(self._minimum, self._maximum)
+
+    def maximum(self):
+        return self._maximum
+
+    # noinspection PyPep8Naming
+    def setMaximum(self, maximum):
+        if isinstance(maximum, int):
+            self._maximum = maximum
+            self._validator.setRange(self._minimum, self._maximum)
+
+    def stepBy(self, steps):
+        new_val = min(self._maximum, max(self._minimum, self._val + steps * self._singleStep))
+        self.setValue(new_val)
+
+    def stepEnabled(self):
+        return self.StepUpEnabled | self.StepDownEnabled
+
+
 class LineEditHist(QtWidgets.QLineEdit):
     """A subclass of QLineEdit that keeps track of histories.
 
@@ -129,7 +244,8 @@ class LineEditHist(QtWidgets.QLineEdit):
     num_hist : int
         number of history to keep track of.
     """
-    def __init__(self, hist_queue: Optional[deque]=None, num_hist: int=200):
+
+    def __init__(self, hist_queue: Optional[deque] = None, num_hist: int = 200):
         super(LineEditHist, self).__init__()
         if hist_queue is None:
             self.histories = deque(maxlen=num_hist)

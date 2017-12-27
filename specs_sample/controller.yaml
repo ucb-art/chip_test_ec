@@ -62,7 +62,3 @@ gpib:
       port: 5025
       # TCP buffer size
       buffer_size: 2048
-
-# True to create a fake Controller object that doesn't talk with anything.
-# Used mainly for debugging.
-fake: True

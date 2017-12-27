@@ -46,7 +46,8 @@ class Controller(object):
         """Release resources associated with this controller."""
         self._fpga.close()
         for name, dev in self._gpib_devices.items():
-            dev.close()
+            if dev is not None:
+                dev.close()
 
     @property
     def fpga(self) -> Optional[FPGABase]:
