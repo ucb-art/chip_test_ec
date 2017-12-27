@@ -71,18 +71,18 @@ class ScanFrame(QtWidgets.QFrame):
 
     Parameters
     ----------
-    fpga : chip_test_ec.backend.fpga.base.FPGABase
-        the scan chain object.
+    ctrl : Controller
+        the controller object.
     font_size : int
         the font size for this frame.
     max_step : int
         maximum scan bus spinbox step size.
     """
-    def __init__(self, fpga, font_size=11, max_step=8192):
+    def __init__(self, ctrl, font_size=11, max_step=8192):
         super(ScanFrame, self).__init__()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-        self.fpga = fpga
-        self.chain_names = fpga.get_scan_chain_names()
+        self.ctrl = ctrl
+        self.chain_names = ctrl.fpga.get_scan_chain_names()
         self.delegate = ScanDelegate()
 
         # set font
@@ -97,7 +97,7 @@ class ScanFrame(QtWidgets.QFrame):
         sel_label = QtWidgets.QLabel('&Scan Chain:')
         sel_label.setBuddy(chain_sel)
         for chain_name in self.chain_names:
-            self.models.append(ScanItemModel(fpga, chain_name))
+            self.models.append(ScanItemModel(ctrl, chain_name))
             chain_sel.addItem(chain_name, chain_name)
         chain_sel.setCurrentIndex(0)
         # noinspection PyUnresolvedReferences
@@ -181,11 +181,11 @@ class ScanFrame(QtWidgets.QFrame):
         cur_dir = os.getcwd()
         fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
         if fname:
-            self.fpga.set_scan_from_file(fname)
+            self.ctrl.fpga.set_scan_from_file(fname)
 
     @QtCore.pyqtSlot()
     def save_to_file(self):
         cur_dir = os.getcwd()
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir)
         if fname:
-            self.fpga.save_scan_to_file(fname)
+            self.ctrl.fpga.save_scan_to_file(fname)

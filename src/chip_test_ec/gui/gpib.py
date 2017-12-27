@@ -2,14 +2,12 @@
 
 """This module defines GUI components that let users interact with GPIB devices."""
 
-from typing import Dict
-
 from PyQt5 import QtWidgets, QtCore
 
 from .base.fields import LineEditHist
 
 # type check imports
-from ..backend.gpib.core import GPIBController
+from ..backend.core import Controller
 from .base.displays import LogWidget
 
 
@@ -21,17 +19,18 @@ class GPIBFrame(QtWidgets.QFrame):
 
     Parameters
     ----------
-    gpib_table : Dict[str, GPIBController]
-        a dictionary of all GPIB devices.
+    ctrl : Controller
+        The controller object.
     logger : LogWidget
         the LogWidget used to display messages.
 
     """
-    def __init__(self, gpib_table: Dict[str, GPIBController], logger: LogWidget):
+    def __init__(self, ctrl: Controller, logger: LogWidget):
         super(GPIBFrame, self).__init__()
 
+        self.ctrl = ctrl
+        gpib_table = ctrl.gpib_table
         self.name_list = sorted(gpib_table.keys())
-        self.dev_list = [gpib_table[name] for name in self.name_list]
         self.dev_sel = QtWidgets.QComboBox()
         self.dev_sel.addItems(self.name_list)
         self.q_cmd = LineEditHist(num_hist=200)
@@ -51,7 +50,8 @@ class GPIBFrame(QtWidgets.QFrame):
 
     @QtCore.pyqtSlot()
     def send_query(self):
-        dev = self.dev_list[self.dev_sel.currentIndex()]
+        dev_name = self.name_list[self.dev_sel.currentIndex()]
+        dev = self.ctrl.gpib_table[dev_name]
         cmd = self.q_cmd.text()
         if dev is None:
             msg = 'No device to send query: {}'.format(cmd)
@@ -62,7 +62,8 @@ class GPIBFrame(QtWidgets.QFrame):
 
     @QtCore.pyqtSlot()
     def send_write(self):
-        dev = self.dev_list[self.dev_sel.currentIndex()]
+        dev_name = self.name_list[self.dev_sel.currentIndex()]
+        dev = self.ctrl.gpib_table[dev_name]
         cmd = self.w_cmd.text()
         if dev is None:
             msg = 'No device to send command: {}'.format(cmd)
