@@ -203,7 +203,11 @@ class RXControlFrame(QtWidgets.QFrame):
                 obj_name = '%s.%s' % (chain_name, bus_name)
                 scan_val = fpga.get_scan(chain_name, bus_name)
                 num_bits = fpga.get_scan_length(chain_name, bus_name)
-                fname = None if len(entry) < 3 else entry[2]
+                if len(entry) < 3:
+                    fname, scale, unit = None, 1.0, ''
+                else:
+                    fname, scale, unit = entry[2:5]
+
                 if num_bits == 1:
                     check_box = QtWidgets.QCheckBox(bus_name, parent=self)
                     check_box.setObjectName(obj_name)
@@ -228,16 +232,15 @@ class RXControlFrame(QtWidgets.QFrame):
                         yvec_mono = reg.fit_transform(xvec, mat[:, 1])
                         # set max and min based on characterization file
                         max_val = int(round(np.max(xvec)))
-                        spin_box.setMaximum(int(round(np.max(xvec))))
+                        spin_box.setMaximum(max_val)
                         spin_box.setMinimum(offset)
                         if scan_val < offset or scan_val > max_val:
                             raise ValueError('Default scan values outside characterization bounds')
                         spin_box.setValue(scan_val)
-
-                        val_text = '%.4e' % (yvec_mono[scan_val - offset])
+                        val_text = '%.4g %s' % (yvec_mono[scan_val - offset] * scale, unit)
                         val_label = QtWidgets.QLabel(val_text, parent=self)
                         val_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-                        val_label_lookup[obj_name] = (val_label, offset, yvec_mono)
+                        val_label_lookup[obj_name] = (val_label, offset, scale, unit, yvec_mono)
                         # noinspection PyUnresolvedReferences
                         spin_box.valueChanged[int].connect(self.update_label)
                         widgets_col.append((name_label, spin_box, val_label))
@@ -267,8 +270,8 @@ class RXControlFrame(QtWidgets.QFrame):
     @QtCore.pyqtSlot('int')
     def update_label(self, val):
         obj_name = self.sender().objectName()
-        val_label, offset, yvec = self.val_lookup[obj_name]
-        val_label.setText('%.4e' % yvec[val - offset])
+        val_label, offset, scale, unit, yvec = self.val_lookup[obj_name]
+        val_label.setText('%.4g %s' % (yvec[val - offset] * scale, unit))
 
     @QtCore.pyqtSlot('int')
     def update_step_size(self, val):
