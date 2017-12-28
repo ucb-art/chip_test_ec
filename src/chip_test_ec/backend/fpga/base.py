@@ -104,13 +104,33 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def scan_in_and_read_out(self, chain_name: str, value: List[int], numbits: List[int]) -> List[int]:
+    def update_pins(self, chain_info: Dict[str, Any], value: List[int], numbits: List[int]) -> List[int]:
+        """Read/Write to IO pins.
+
+        Parameters
+        ----------
+        chain_info : Dict[str, Any]
+            the scan chain information dictionary.
+        value : List[int]
+            the values to scan in.  Index 0 is the MSB scan bus.
+        numbits : List[int]
+            number of bits of each scan bus.  Index 0 is the MSB scan bus.
+
+        Returns
+        -------
+        output : List[int]
+            the chain values after the scan in procedure.  Index 0 is the MSB scan bus.
+        """
+        return value
+
+    @abc.abstractmethod
+    def scan_in_and_read_out(self, chain_info: Dict[str, Any], value: List[int], numbits: List[int]) -> List[int]:
         """Scan in the given chain and return the content after scan.
 
         Parameters
         ----------
-        chain_name : str
-            the scan chain name.
+        chain_info : Dict[str, Any]
+            the scan chain information dictionary.
         value : List[int]
             the values to scan in.  Index 0 is the MSB scan bus.
         numbits : List[int]
@@ -191,11 +211,12 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             if True, will check if the updated data is the same as the data shifted
             in.  Raise an error is this is not the case.
         """
+        chain_info = self.get_scan_chain_info(chain_name)
         scan_values = self._chain_value[chain_name]
 
         # get value and numbits list
         value, numbits = [], []
-        for bus_info in self._scan_config['chains'][chain_name]['content']:
+        for bus_info in chain_info['content']:
             bus_name = bus_info['name']
             bus_nbits = bus_info['nbits']
             value.append(scan_values[bus_name])
@@ -204,9 +225,12 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         if self.is_fake_scan:
             self.log_msg('updating chain %s in fake scan mode' % chain_name, level=logging.INFO)
             output = value
+        elif chain_info.get('is_pin', False):
+            # this chain represents IO pins
+            output = self.update_pins(chain_info, value, numbits)
         else:
             self.log_msg('scanning chain %s' % chain_name, level=logging.INFO)
-            output = self.scan_in_and_read_out(chain_name, value, numbits)
+            output = self.scan_in_and_read_out(chain_info, value, numbits)
 
         if len(value) != len(output):
             msg = 'Scan chain %s output length different than scan input.' % chain_name
@@ -327,6 +351,19 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
 
         self.log_msg('Scan: setting {}/{} to {}'.format(chain_name, bus_name, value))
         chain_table[bus_name] = value
+
+    def set_scan_vals(self, chain_name: str, val_dict: Dict[str, int]) -> None:
+        """Sets scan buses values using keyword argument.
+
+        Parameters
+        ----------
+        chain_name : str
+            the scan chain name.
+        val_dict : Dict[str, int]
+            scan bus values in dictionary format.
+        """
+        for key, val in val_dict.items():
+            self.set_scan(chain_name, key, val)
 
     def get_scan(self, chain_name: str, bus_name: str) -> int:
         """Returns given scan bus value.
