@@ -124,6 +124,24 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         return value
 
     @abc.abstractmethod
+    def is_scan_read_only(self, chain_name: str, bus_name: str) -> bool:
+        """Returns True if the given scan bus is read only, False otherwise.
+
+        Parameters
+        ----------
+        chain_name : str
+            the scan chain name.
+        bus_name : str
+            the scan bus name.
+
+        Returns
+        -------
+        is_read_only : bool
+            True if the given scan bus is read only.
+        """
+        return False
+
+    @abc.abstractmethod
     def scan_in_and_read_out(self, chain_info: Dict[str, Any], value: List[int], numbits: List[int]) -> List[int]:
         """Scan in the given chain and return the content after scan.
 
@@ -142,23 +160,6 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             the chain values after the scan in procedure.  Index 0 is the MSB scan bus.
         """
         return value
-
-    @abc.abstractmethod
-    def check_scan_success(self, chain_name: str, in_list: List[int], out_list: List[int]) -> None:
-        """Check that scan procedure is successful.
-
-        This method should raise a ValueError with detailed error message if the scan procedure failed.
-
-        Parameters
-        ----------
-        chain_name : str
-            the scan chain name.
-        in_list : List[int]
-            the list of scan in values for each scan bus.
-        out_list : List[int]
-            the list of scan out values for each scan bus.
-        """
-        pass
 
     @abc.abstractmethod
     def send_i2c_cmds(self,
@@ -236,6 +237,27 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
     def addr_len(self) -> int:
         return self._scan_config['nbits_addr']
 
+    def check_scan_success(self, chain_name: str, in_list: List[int], out_list: List[int]) -> None:
+        """Check that scan procedure is successful.
+
+        This method should raise a ValueError with detailed error message if the scan procedure failed.
+
+        Parameters
+        ----------
+        chain_name : str
+            the scan chain name.
+        in_list : List[int]
+            the list of scan in values for each scan bus.
+        out_list : List[int]
+            the list of scan out values for each scan bus.
+        """
+        name_list = self.get_scan_names(chain_name)
+        for name, val_in, val_out in zip(name_list, in_list, out_list):
+            if not self.is_scan_read_only(chain_name, name) and val_in != val_out:
+                msg = 'scan bus %s.%s value = %d != %d' % (chain_name, name, val_out, val_in)
+                self.log_msg(msg, level=logging.ERROR)
+                raise ValueError(msg)
+
     def update_scan(self, chain_name: str, check: bool=False) -> None:
         """Scan in the given chain, scan out the resulting data, then update
 
@@ -303,8 +325,13 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             scan_dict = yaml.load(f)
 
         for chain_name, chain_values in scan_dict.items():
-            self._chain_value[chain_name].update(chain_values)
-            self.update_scan(chain_name)
+            changed = False
+            for key, val in chain_values.items():
+                if not self.is_scan_read_only(chain_name, key) and val != self.get_scan(chain_name, key):
+                    changed = True
+                    self.set_scan(chain_name, key, val)
+            if changed:
+                self.update_scan(chain_name)
 
     def save_scan_to_file(self, fname: str, **kwargs) -> None:
         """Save the current scan chain content to the given file.
