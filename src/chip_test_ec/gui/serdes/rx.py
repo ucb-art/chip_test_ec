@@ -303,8 +303,8 @@ class RXControlFrame(QtWidgets.QFrame):
 
         return widgets, spin_box_list, check_box_list, val_label_lookup
 
-    @QtCore.pyqtSlot('str')
-    def update_from_scan(self, chain_name):
+    @QtCore.pyqtSlot(str)
+    def _update_from_scan(self, chain_name):
         fpga = self.ctrl.fpga
 
         # update displays
@@ -344,7 +344,7 @@ class RXControlFrame(QtWidgets.QFrame):
             self.activity_movie.jumpToNextFrame()
             self.update_button.setIcon(QtGui.QIcon(self.activity_movie.currentPixmap()))
 
-    @QtCore.pyqtSlot('int')
+    @QtCore.pyqtSlot(int)
     def update_scan(self, val):
         send_obj = self.sender()
         if isinstance(send_obj, QtWidgets.QCheckBox):
@@ -357,18 +357,18 @@ class RXControlFrame(QtWidgets.QFrame):
             fpga.set_scan(chain_name, bus_name, val)
             fpga.update_scan(chain_name)
 
-    @QtCore.pyqtSlot('int')
+    @QtCore.pyqtSlot(int)
     def update_label(self, val):
         obj_name = self.sender().objectName()
         val_label, offset, scale, unit, yvec = self.val_lookup[obj_name]
         val_label.setText('%.4g %s' % (yvec[val - offset] * scale, unit))
 
-    @QtCore.pyqtSlot('int')
+    @QtCore.pyqtSlot(int)
     def update_step_size(self, val):
         for spin_box in self.spin_box_list:
             spin_box.setSingleStep(val)
 
-    @QtCore.pyqtSlot('int')
+    @QtCore.pyqtSlot(int)
     def update_refresh(self, val):
         if val == QtCore.Qt.Checked:
             self.update_button.setEnabled(False)
@@ -378,7 +378,7 @@ class RXControlFrame(QtWidgets.QFrame):
             self.update_button.setText('Update')
             self.refresh_timer.stop()
 
-    @QtCore.pyqtSlot('int')
+    @QtCore.pyqtSlot(int)
     def update_refresh_rate(self, val):
         self.refresh_timer.setInterval(val)
 
