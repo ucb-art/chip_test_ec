@@ -64,7 +64,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         self._chain_value = {}
         self._chain_order = {}
         self._chain_blen = {}
-        self._callbacks = {}
+        self._callbacks = []
         self._fake_scan = fake_scan
         self._chain_names = None
 
@@ -94,7 +94,6 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             self._chain_value[chain_name] = chain_value
             self._chain_order[chain_name] = chain_order
             self._chain_blen[chain_name] = chain_blen
-            self._callbacks[chain_name] = []
 
         self._chain_names = [item[1] for item in sorted(chain_sort)]
 
@@ -306,8 +305,8 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             scan_values[name] = val_out
 
         self.log_msg('running callback functions after scan.', level=logging.INFO)
-        for fun in self._callbacks[chain_name]:
-            fun()
+        for fun in self._callbacks:
+            fun(chain_name)
         self.log_msg('scan update done.', level=logging.INFO)
 
     def set_scan_from_file(self, fname: str) -> None:
@@ -355,17 +354,16 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         with open(fname, 'w') as f:
             yaml.dump(save_val, f)
 
-    def add_callback(self, chain_name: str, fun: Callable[[], None]) -> None:
-        """Adds a function which will be called if the given scan chain content changed.
+    def add_callback(self, fun: Callable[[str], None]) -> None:
+        """Adds a function which will be called if a scan chain changed.
 
         Parameters
         ----------
-        chain_name : str
-            the scan chain name.
-        fun : Callable[[], None]
-            the function to call if scan chain updated.
+        fun : Callable[[str], None]
+            the function to call if a scan chain updated.  This function should take
+            a single string argument, which is the scan chain name.
         """
-        self._callbacks[chain_name].append(fun)
+        self._callbacks.append(fun)
 
     def get_scan_chain_names(self) -> List[str]:
         """Returns a list of scan chain names.

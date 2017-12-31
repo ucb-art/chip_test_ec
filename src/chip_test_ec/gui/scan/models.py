@@ -40,8 +40,6 @@ class ScanItemModel(QtGui.QStandardItemModel):
     This model overwrites QStandardItemModel such that setting scan values will update the scan chain.
     """
 
-    scanChainChanged = QtCore.pyqtSignal()
-
     def __init__(self, ctrl: Controller, chain_name: str):
         """Create a new ScanItemModel based on the given scan control object.
 
@@ -58,10 +56,6 @@ class ScanItemModel(QtGui.QStandardItemModel):
         self.item_dict = self._build_model()
         self.sync_flag = True
         self.setHorizontalHeaderLabels(['Scan Name', 'Value'])
-        # noinspection PyUnresolvedReferences
-        ctrl.fpga.add_callback(chain_name, self.scanChainChanged.emit)
-        # noinspection PyUnresolvedReferences
-        self.scanChainChanged.connect(self._update)
 
     def set_sync_flag(self, state: int):
         """Change whether the GUI display syncs to scan chain in real time.
@@ -123,8 +117,7 @@ class ScanItemModel(QtGui.QStandardItemModel):
                 fpga.set_scan(self.chain_name, name, new_val)
         fpga.update_scan(self.chain_name)
 
-    @QtCore.pyqtSlot()
-    def _update(self):
+    def update_from_scan(self):
         """Update this model to have the same content as the scan control.
         """
         fpga = self.ctrl.fpga

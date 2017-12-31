@@ -82,6 +82,9 @@ class ScanFrame(QtWidgets.QFrame):
     max_step : int
         maximum scan bus spinbox step size.
     """
+
+    scanChainChanged = QtCore.pyqtSignal(str)
+
     def __init__(self, ctrl: Controller, logger: LogWidget, font_size: int=11, max_step: int=8192):
         super(ScanFrame, self).__init__()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
@@ -89,6 +92,10 @@ class ScanFrame(QtWidgets.QFrame):
         self.chain_names = ctrl.fpga.get_scan_chain_names()
         self.delegate = ScanDelegate()
         self.logger = logger
+        # noinspection PyUnresolvedReferences
+        ctrl.fpga.add_callback(self.scanChainChanged.emit)
+        # noinspection PyUnresolvedReferences
+        self.scanChainChanged[str].connect(self._update_models)
 
         # set font
         font = QtGui.QFont()
@@ -180,6 +187,12 @@ class ScanFrame(QtWidgets.QFrame):
     @QtCore.pyqtSlot(int)
     def set_model_sync_flag(self, state):
         self.models[self.model_idx].set_sync_flag(state)
+
+    @QtCore.pyqtSlot(str)
+    def _update_models(self, chain_name):
+        for name, model in zip(self.chain_names, self.models):
+            if name == chain_name:
+                model.update_from_scan()
 
     @QtCore.pyqtSlot()
     def set_from_file(self):
