@@ -345,15 +345,25 @@ class RXControlFrame(QtWidgets.QFrame):
 
     @QtCore.pyqtSlot()
     def measure_current(self):
-        self.logger.println('test measure.')
-        pass
+        sup_name = self.sup_field.text()
+        try:
+            current = self.ctrl.fpga.read_current(sup_name)
+            self.logger.println('%s current: %.6g mA' % (sup_name, current * 1e3))
+        except KeyError as ex:
+            self.logger.println(str(ex))
 
     @QtCore.pyqtSlot()
     def save_as(self):
-        self.logger.println('test save.')
-        pass
+        cur_dir = os.getcwd()
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', cur_dir, 'YAML files (*.yaml *.yml)',
+                                                         options=QtWidgets.QFileDialog.DontUseNativeDialog)
+        if fname:
+            self.logger.println('Saving to file: %s' % fname)
 
     @QtCore.pyqtSlot()
     def load_from(self):
-        self.logger.println('test load.')
-        pass
+        cur_dir = os.getcwd()
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', cur_dir, 'YAML files (*.yaml *.yml)',
+                                                         options=QtWidgets.QFileDialog.DontUseNativeDialog)
+        if fname:
+            self.logger.println('Loading from file: %s' % fname)

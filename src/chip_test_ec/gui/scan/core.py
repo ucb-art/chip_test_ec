@@ -184,7 +184,8 @@ class ScanFrame(QtWidgets.QFrame):
     @QtCore.pyqtSlot()
     def set_from_file(self):
         cur_dir = os.getcwd()
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', cur_dir, 'YAML files (*.yaml *.yml)',
+                                                         options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             self.logger.println('Loading from file: %s' % fname)
             self.ctrl.fpga.set_scan_from_file(fname)
@@ -192,7 +193,8 @@ class ScanFrame(QtWidgets.QFrame):
     @QtCore.pyqtSlot()
     def save_to_file(self):
         cur_dir = os.getcwd()
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir)
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir, 'YAML files (*.yaml *.yml)',
+                                                         options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             self.logger.println('Saving to file: %s' % fname)
             self.ctrl.fpga.save_scan_to_file(fname)

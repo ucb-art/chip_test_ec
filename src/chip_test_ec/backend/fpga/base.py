@@ -189,6 +189,45 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         """
         return [None] * len(cmd_list)
 
+    @abc.abstractmethod
+    def set_voltage(self, sup_name: str, val: float) -> None:
+        """Sets the voltage of the given supply.
+
+        Parameters
+        ----------
+        sup_name : str
+            the supply name.
+        val : float
+            the supply voltage, in volts.
+
+        Raises
+        ------
+        KeyError
+            If the given supply is not defined.
+        """
+        raise NotImplementedError('Not implemented.')
+
+    @abc.abstractmethod
+    def read_current(self, sup_name: str) -> float:
+        """Returns the current reading for the given supply.
+
+        Parameter
+        ---------
+        sup_name : str
+            the supply name.
+
+        Returns
+        -------
+        current : float
+            the supply current, in Amperes.
+
+        Raises
+        ------
+        KeyError
+            If the given supply is not defined.
+        """
+        raise NotImplementedError('Not implemented')
+
     @property
     def is_fake_scan(self) -> bool:
         return self._fake_scan
