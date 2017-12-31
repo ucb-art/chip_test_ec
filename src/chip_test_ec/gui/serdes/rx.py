@@ -33,11 +33,19 @@ class RXControlFrame(QtWidgets.QFrame):
     font_size : int
         the font size for this frame.]
     """
+
+    scanChainChanged = QtCore.pyqtSignal(str)
+
     def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget, font_size: int=11):
         super(RXControlFrame, self).__init__()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.ctrl = ctrl
         self.logger = logger
+
+        # noinspection PyUnresolvedReferences
+        ctrl.fpga.add_callback(self.scanChainChanged.emit)
+        # noinspection PyUnresolvedReferences
+        self.scanChainChanged[str].connect(self._update_from_scan)
 
         # set font
         font = QtGui.QFont()
@@ -55,7 +63,7 @@ class RXControlFrame(QtWidgets.QFrame):
         self.char_dir = os.path.abspath(char_dir)
         # create controls
         tmp = self.create_controls(self.ctrl.fpga, controls, char_dir)
-        ctrl_widgets, self.spin_box_list, self.val_lookup = tmp
+        ctrl_widgets, self.spin_box_list, self.check_box_list, self.val_lookup = tmp
 
         # create displays
         self.disp_widgets = self.create_displays(self.ctrl.fpga, displays, font_size)
@@ -230,6 +238,7 @@ class RXControlFrame(QtWidgets.QFrame):
 
     def create_controls(self, fpga, controls, char_dir):
         widgets = []
+        check_box_list = []
         spin_box_list = []
         val_label_lookup = {}
         for column in controls:
@@ -252,6 +261,7 @@ class RXControlFrame(QtWidgets.QFrame):
                     # noinspection PyUnresolvedReferences
                     check_box.stateChanged[int].connect(self.update_scan)
                     widgets_col.append((check_box, ))
+                    check_box_list.append(check_box)
                 else:
                     name_label = QtWidgets.QLabel(bus_name, parent=self)
                     spin_box = QtWidgets.QSpinBox(parent=self)
@@ -291,7 +301,48 @@ class RXControlFrame(QtWidgets.QFrame):
 
             widgets.append(widgets_col)
 
-        return widgets, spin_box_list, val_label_lookup
+        return widgets, spin_box_list, check_box_list, val_label_lookup
+
+    @QtCore.pyqtSlot('str')
+    def update_from_scan(self, chain_name):
+        fpga = self.ctrl.fpga
+
+        # update displays
+        changed = False
+        for (_, disp_field, cur_chain_name, bus_name, disp_type, nbits, (start, des_num)) in self.disp_widgets:
+            if cur_chain_name == chain_name:
+                scan_val = fpga.get_scan(chain_name, bus_name)
+                changed = True
+                if disp_type == 'int':
+                    disp_str = str(scan_val)
+                else:
+                    disp_str = np.binary_repr(scan_val, nbits)[start::des_num]
+                disp_field.setText(disp_str)
+
+        # update controls
+        for spin_box in self.spin_box_list:
+            obj_name = spin_box.objectName()
+            cur_chain_name, bus_name = obj_name.split('.', 1)
+            cur_value = spin_box.value()
+            if cur_chain_name == chain_name:
+                new_value = fpga.get_scan(chain_name, bus_name)
+                if cur_value != new_value:
+                    changed = True
+                    spin_box.setValue(new_value)
+        for check_box in self.check_box_list:
+            obj_name = check_box.objectName()
+            cur_chain_name, bus_name = obj_name.split('.', 1)
+            cur_state = check_box.checkState()
+            if cur_chain_name == chain_name:
+                new_value = fpga.get_scan(chain_name, bus_name)
+                new_state = QtCore.Qt.Checked if new_value == 1 else QtCore.Qt.Unchecked
+                if cur_state != new_state:
+                    changed = True
+                    check_box.setCheckState(new_state)
+
+        if changed:
+            self.activity_movie.jumpToNextFrame()
+            self.update_button.setIcon(QtGui.QIcon(self.activity_movie.currentPixmap()))
 
     @QtCore.pyqtSlot('int')
     def update_scan(self, val):
@@ -340,17 +391,6 @@ class RXControlFrame(QtWidgets.QFrame):
         fpga = self.ctrl.fpga
         for chain_name in update_chains:
             fpga.update_scan(chain_name)
-
-        for (_, disp_field, chain_name, bus_name, disp_type, nbits, (start, des_num)) in self.disp_widgets:
-            scan_val = fpga.get_scan(chain_name, bus_name)
-            if disp_type == 'int':
-                disp_str = str(scan_val)
-            else:
-                disp_str = np.binary_repr(scan_val, nbits)[start::des_num]
-            disp_field.setText(disp_str)
-
-        self.activity_movie.jumpToNextFrame()
-        self.update_button.setIcon(QtGui.QIcon(self.activity_movie.currentPixmap()))
 
     @QtCore.pyqtSlot()
     def measure_current(self):
