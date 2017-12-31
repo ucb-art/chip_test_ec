@@ -13,6 +13,9 @@ from sklearn.isotonic import IsotonicRegression
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+from ...backend.core import Controller
+from ..base.displays import LogWidget
+
 activity_gif = pkg_resources.resource_filename('chip_test_ec.gui', os.path.join('resources', 'ajax-loader.gif'))
 
 
@@ -25,13 +28,16 @@ class RXControlFrame(QtWidgets.QFrame):
         the controller object
     specs_fname : str
         the specification file name.
+    logger : LogWidget
+        the LogWidget used to display messages.
     font_size : int
         the font size for this frame.]
     """
-    def __init__(self, ctrl, specs_fname, font_size=11):
+    def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget, font_size: int=11):
         super(RXControlFrame, self).__init__()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.ctrl = ctrl
+        self.logger = logger
 
         # set font
         font = QtGui.QFont()
@@ -55,11 +61,8 @@ class RXControlFrame(QtWidgets.QFrame):
         self.disp_widgets = self.create_displays(self.ctrl.fpga, displays, font_size)
 
         # create panel controls
-        self.refresh_timer = QtCore.QTimer(parent=self)
-        self.refresh_timer.setInterval(200)
-        # noinspection PyUnresolvedReferences
-        self.refresh_timer.timeout.connect(self.update_display)
-        pc_frame, self.update_button, self.activity_movie = self.create_panel_controls(self.refresh_timer)
+        tmp = self.create_panel_controls()
+        pc_frame, self.update_button, self.activity_movie, self.refresh_timer, self.sup_field = tmp
 
         # populate frame
         self.lay = QtWidgets.QVBoxLayout()
@@ -116,7 +119,9 @@ class RXControlFrame(QtWidgets.QFrame):
         frame.setLayout(lay)
         return frame, lay
 
-    def create_panel_controls(self, refresh_timer):
+    def create_panel_controls(self):
+        align_label = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
+
         frame, lay = self.create_sub_frame()
         step_box = QtWidgets.QSpinBox(parent=self)
         step_box.setSingleStep(1)
@@ -126,7 +131,12 @@ class RXControlFrame(QtWidgets.QFrame):
         # noinspection PyUnresolvedReferences
         step_box.valueChanged[int].connect(self.update_step_size)
         step_label = QtWidgets.QLabel('Step size:', parent=self)
-        step_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        step_label.setAlignment(align_label)
+
+        refresh_timer = QtCore.QTimer(parent=self)
+        refresh_timer.setInterval(200)
+        # noinspection PyUnresolvedReferences
+        refresh_timer.timeout.connect(self.update_display)
 
         update_box = QtWidgets.QSpinBox(parent=self)
         update_box.setSingleStep(1)
@@ -136,7 +146,7 @@ class RXControlFrame(QtWidgets.QFrame):
         # noinspection PyUnresolvedReferences
         update_box.valueChanged[int].connect(self.update_refresh_rate)
         update_label = QtWidgets.QLabel('Refresh rate (ms):', parent=self)
-        update_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        update_label.setAlignment(align_label)
 
         check_box = QtWidgets.QCheckBox('Real-time refresh', parent=self)
         check_box.setCheckState(QtCore.Qt.Unchecked)
@@ -151,14 +161,34 @@ class RXControlFrame(QtWidgets.QFrame):
         # noinspection PyUnresolvedReferences
         update_button.clicked.connect(self.update_display)
 
+        sup_field = QtWidgets.QLineEdit(parent=self)
+        sup_field.setText('SERDES_AVDD')
+        sup_label = QtWidgets.QLabel('Supply:', parent=self)
+        sup_label.setAlignment(align_label)
+        imeas_button = QtWidgets.QPushButton('Measure Current', parent=self)
+        # noinspection PyUnresolvedReferences
+        imeas_button.clicked.connect(self.measure_current)
+
+        save_button = QtWidgets.QPushButton('Save As...', parent=self)
+        # noinspection PyUnresolvedReferences
+        save_button.clicked.connect(self.save_as)
+        load_button = QtWidgets.QPushButton('Load From...', parent=self)
+        # noinspection PyUnresolvedReferences
+        load_button.clicked.connect(self.load_from)
+
         lay.addWidget(step_label, 0, 0)
         lay.addWidget(step_box, 0, 1)
         lay.addWidget(update_label, 0, 2)
         lay.addWidget(update_box, 0, 3)
         lay.addWidget(check_box, 0, 4)
         lay.addWidget(update_button, 0, 5)
+        lay.addWidget(sup_label, 1, 0)
+        lay.addWidget(sup_field, 1, 1)
+        lay.addWidget(imeas_button, 1, 2, 1, 2)
+        lay.addWidget(save_button, 1, 4)
+        lay.addWidget(load_button, 1, 5)
 
-        return frame, update_button, activity_movie
+        return frame, update_button, activity_movie, refresh_timer, sup_field
 
     def create_displays(self, fpga, displays, font_size):
         disp_font = QtGui.QFont('Monospace')
@@ -312,3 +342,18 @@ class RXControlFrame(QtWidgets.QFrame):
 
         self.activity_movie.jumpToNextFrame()
         self.update_button.setIcon(QtGui.QIcon(self.activity_movie.currentPixmap()))
+
+    @QtCore.pyqtSlot()
+    def measure_current(self):
+        self.logger.println('test measure.')
+        pass
+
+    @QtCore.pyqtSlot()
+    def save_as(self):
+        self.logger.println('test save.')
+        pass
+
+    @QtCore.pyqtSlot()
+    def load_from(self):
+        self.logger.println('test load.')
+        pass

@@ -7,7 +7,9 @@ import os
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
+from ...backend.core import Controller
 from ..base.fields import BigIntSpinbox
+from ..base.displays import LogWidget
 from .models import ScanItemModel, ScanSortFilterProxyModel
 
 
@@ -73,17 +75,20 @@ class ScanFrame(QtWidgets.QFrame):
     ----------
     ctrl : Controller
         the controller object.
+    logger : LogWidget
+        the LogWidget use to display messages.
     font_size : int
         the font size for this frame.
     max_step : int
         maximum scan bus spinbox step size.
     """
-    def __init__(self, ctrl, font_size=11, max_step=8192):
+    def __init__(self, ctrl: Controller, logger: LogWidget, font_size: int=11, max_step: int=8192):
         super(ScanFrame, self).__init__()
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.ctrl = ctrl
         self.chain_names = ctrl.fpga.get_scan_chain_names()
         self.delegate = ScanDelegate()
+        self.logger = logger
 
         # set font
         font = QtGui.QFont()
@@ -181,6 +186,7 @@ class ScanFrame(QtWidgets.QFrame):
         cur_dir = os.getcwd()
         fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Select File', cur_dir)
         if fname:
+            self.logger.println('Loading from file: %s' % fname)
             self.ctrl.fpga.set_scan_from_file(fname)
 
     @QtCore.pyqtSlot()
@@ -188,4 +194,5 @@ class ScanFrame(QtWidgets.QFrame):
         cur_dir = os.getcwd()
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir)
         if fname:
+            self.logger.println('Saving to file: %s' % fname)
             self.ctrl.fpga.save_scan_to_file(fname)
