@@ -306,16 +306,27 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             self._chain_value[chain_name].update(chain_values)
             self.update_scan(chain_name)
 
-    def save_scan_to_file(self, fname: str) -> None:
+    def save_scan_to_file(self, fname: str, **kwargs) -> None:
         """Save the current scan chain content to the given file.
 
         Parameters
         ----------
         fname : str
             the file to write.
+        **kwargs
+            Optional attributes to add to the file.
         """
+        if os.path.isdir(fname):
+            raise ValueError('Cannot save scan to a directory: %s' % fname)
+
+        if kwargs:
+            save_val = self._chain_value.copy()
+            save_val.update(kwargs)
+        else:
+            save_val = self._chain_value
+
         with open(fname, 'w') as f:
-            yaml.dump(self._chain_value, f)
+            yaml.dump(save_val, f)
 
     def add_callback(self, chain_name: str, fun: Callable[[], None]) -> None:
         """Adds a function which will be called if the given scan chain content changed.

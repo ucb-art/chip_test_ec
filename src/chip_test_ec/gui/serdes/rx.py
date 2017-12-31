@@ -62,7 +62,13 @@ class RXControlFrame(QtWidgets.QFrame):
 
         # create panel controls
         tmp = self.create_panel_controls()
-        pc_frame, self.update_button, self.activity_movie, self.refresh_timer, self.sup_field = tmp
+        pc_frame = tmp[0]
+        self.step_box = tmp[1]
+        self.refresh_spinbox = tmp[2]
+        self.update_button = tmp[3]
+        self.activity_movie = tmp[4]
+        self.refresh_timer = tmp[5]
+        self.sup_field = tmp[6]
 
         # populate frame
         self.lay = QtWidgets.QVBoxLayout()
@@ -188,7 +194,7 @@ class RXControlFrame(QtWidgets.QFrame):
         lay.addWidget(save_button, 1, 4)
         lay.addWidget(load_button, 1, 5)
 
-        return frame, update_button, activity_movie, refresh_timer, sup_field
+        return frame, step_box, update_box, update_button, activity_movie, refresh_timer, sup_field
 
     def create_displays(self, fpga, displays, font_size):
         disp_font = QtGui.QFont('Monospace')
@@ -294,8 +300,11 @@ class RXControlFrame(QtWidgets.QFrame):
             val = 1 if val == QtCore.Qt.Checked else 0
         obj_name = send_obj.objectName()
         chain_name, bus_name = obj_name.split('.', 1)
-        self.ctrl.fpga.set_scan(chain_name, bus_name, val)
-        self.ctrl.fpga.update_scan(chain_name)
+        fpga = self.ctrl.fpga
+        cur_val = fpga.get_scan(chain_name, bus_name)
+        if cur_val != val:
+            fpga.set_scan(chain_name, bus_name, val)
+            fpga.update_scan(chain_name)
 
     @QtCore.pyqtSlot('int')
     def update_label(self, val):
@@ -359,6 +368,11 @@ class RXControlFrame(QtWidgets.QFrame):
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             self.logger.println('Saving to file: %s' % fname)
+            attrs = dict(step_size=self.step_box.value(),
+                         supply=self.sup_field.text(),
+                         refresh_rate=self.refresh_spinbox.value(),
+                         )
+            self.ctrl.fpga.save_scan_to_file(fname, rx_gui=attrs)
 
     @QtCore.pyqtSlot()
     def load_from(self):
@@ -367,3 +381,10 @@ class RXControlFrame(QtWidgets.QFrame):
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             self.logger.println('Loading from file: %s' % fname)
+            with open(fname, 'r') as f:
+                config = yaml.load(f)['rx_gui']
+
+            self.step_box.setValue(config['step_size'])
+            self.sup_field.setText(config['supply'])
+            self.refresh_spinbox.setValue(config['refresh_rate'])
+            self.ctrl.fpga.set_scan_from_file(fname)
