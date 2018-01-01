@@ -7,8 +7,8 @@ from PyQt5 import QtWidgets, QtCore
 
 class LogWidget(QtWidgets.QFrame):
     """A widget used to display messages, with a clear button."""
-    def __init__(self):
-        super(LogWidget, self).__init__()
+    def __init__(self, parent=None):
+        super(LogWidget, self).__init__(parent=parent)
 
         self.logger = QtWidgets.QPlainTextEdit()
         self.logger.setReadOnly(True)

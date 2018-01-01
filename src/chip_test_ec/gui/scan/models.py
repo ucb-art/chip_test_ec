@@ -40,7 +40,7 @@ class ScanItemModel(QtGui.QStandardItemModel):
     This model overwrites QStandardItemModel such that setting scan values will update the scan chain.
     """
 
-    def __init__(self, ctrl: Controller, chain_name: str):
+    def __init__(self, ctrl: Controller, chain_name: str, parent=None):
         """Create a new ScanItemModel based on the given scan control object.
 
         Parameters
@@ -50,7 +50,7 @@ class ScanItemModel(QtGui.QStandardItemModel):
         chain_name : str
             the scan chain this model represents.
         """
-        super(ScanItemModel, self).__init__()
+        super(ScanItemModel, self).__init__(parent=parent)
         self.ctrl = ctrl
         self.chain_name = chain_name
         self.item_dict = self._build_model()

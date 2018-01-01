@@ -178,7 +178,7 @@ class BigIntSpinbox(QtWidgets.QAbstractSpinBox):
         self._minimum = 0
         self._maximum = 100
         self._val = 0
-        self._validator = QBigIntValidator(self._minimum, self._maximum, self)
+        self._validator = QBigIntValidator(self._minimum, self._maximum, parent=self)
         self.lineEdit().setValidator(self._validator)
         # noinspection PyUnresolvedReferences
         self.lineEdit().editingFinished.connect(self.setText)
@@ -245,8 +245,8 @@ class LineEditHist(QtWidgets.QLineEdit):
         number of history to keep track of.
     """
 
-    def __init__(self, hist_queue: Optional[deque] = None, num_hist: int = 200):
-        super(LineEditHist, self).__init__()
+    def __init__(self, hist_queue: Optional[deque] = None, num_hist: int = 200, parent=None):
+        super(LineEditHist, self).__init__(parent=parent)
         if hist_queue is None:
             self.histories = deque(maxlen=num_hist)
         else:

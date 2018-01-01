@@ -2,7 +2,7 @@
 
 """This module defines GUI components that let users interact with GPIB devices."""
 
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, QtGui
 
 from .base.fields import LineEditHist
 
@@ -25,16 +25,21 @@ class GPIBFrame(QtWidgets.QFrame):
         the LogWidget used to display messages.
 
     """
-    def __init__(self, ctrl: Controller, logger: LogWidget):
-        super(GPIBFrame, self).__init__()
+    def __init__(self, ctrl: Controller, logger: LogWidget, font_size: int=11, parent=None):
+        super(GPIBFrame, self).__init__(parent=parent)
+
+        # set font
+        font = QtGui.QFont()
+        font.setPointSize(font_size)
+        self.setFont(font)
 
         self.ctrl = ctrl
         gpib_table = ctrl.gpib_table
         self.name_list = sorted(gpib_table.keys())
         self.dev_sel = QtWidgets.QComboBox()
         self.dev_sel.addItems(self.name_list)
-        self.q_cmd = LineEditHist(num_hist=200)
-        self.w_cmd = LineEditHist(num_hist=200)
+        self.q_cmd = LineEditHist(num_hist=200, parent=parent)
+        self.w_cmd = LineEditHist(num_hist=200, parent=parent)
         self.logger = logger
 
         # noinspection PyUnresolvedReferences
@@ -42,7 +47,7 @@ class GPIBFrame(QtWidgets.QFrame):
         # noinspection PyUnresolvedReferences
         self.w_cmd.returnPressed.connect(self.send_write)
 
-        lay = QtWidgets.QFormLayout()
+        lay = QtWidgets.QFormLayout(parent=parent)
         self.setLayout(lay)
         lay.addRow('Device: ', self.dev_sel)
         lay.addRow('Query Cmd: ', self.q_cmd)

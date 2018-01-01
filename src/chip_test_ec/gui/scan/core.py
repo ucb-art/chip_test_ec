@@ -85,12 +85,12 @@ class ScanFrame(QtWidgets.QFrame):
 
     scanChainChanged = QtCore.pyqtSignal(str)
 
-    def __init__(self, ctrl: Controller, logger: LogWidget, font_size: int=11, max_step: int=8192):
-        super(ScanFrame, self).__init__()
+    def __init__(self, ctrl: Controller, logger: LogWidget, font_size: int=11, max_step: int=8192, parent=None):
+        super(ScanFrame, self).__init__(parent=parent)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.ctrl = ctrl
         self.chain_names = ctrl.fpga.get_scan_chain_names()
-        self.delegate = ScanDelegate()
+        self.delegate = ScanDelegate(parent=self)
         self.logger = logger
         # noinspection PyUnresolvedReferences
         ctrl.fpga.add_callback(self.scanChainChanged.emit)
@@ -105,28 +105,28 @@ class ScanFrame(QtWidgets.QFrame):
         # create scan models and configure chain selection box
         self.models = []
         self.model_idx = 0
-        chain_sel = QtWidgets.QComboBox()
-        sel_label = QtWidgets.QLabel('&Scan Chain:')
+        chain_sel = QtWidgets.QComboBox(parent=self)
+        sel_label = QtWidgets.QLabel('&Scan Chain:', parent=self)
         sel_label.setBuddy(chain_sel)
         for chain_name in self.chain_names:
-            self.models.append(ScanItemModel(ctrl, chain_name))
+            self.models.append(ScanItemModel(ctrl, chain_name, parent=self))
             chain_sel.addItem(chain_name, chain_name)
         chain_sel.setCurrentIndex(0)
         # noinspection PyUnresolvedReferences
         chain_sel.currentIndexChanged[int].connect(self.change_model)
 
         # configure filter
-        self.proxy = ScanSortFilterProxyModel()
+        self.proxy = ScanSortFilterProxyModel(parent=self)
         self.proxy.setSourceModel(self.models[0])
         self.proxy.setFilterKeyColumn(0)
-        filter_text = QtWidgets.QLineEdit()
+        filter_text = QtWidgets.QLineEdit(parent=self)
         # noinspection PyUnresolvedReferences
         filter_text.textChanged[str].connect(self.proxy.update_filter)
-        filter_label = QtWidgets.QLabel('&Filter:')
+        filter_label = QtWidgets.QLabel('&Filter:', parent=self)
         filter_label.setBuddy(filter_text)
 
         # configure tree view
-        self.view = QtWidgets.QTreeView()
+        self.view = QtWidgets.QTreeView(parent=self)
         self.view.setItemDelegate(self.delegate)
         self.view.setSortingEnabled(True)
         self.view.header().setSortIndicatorShown(True)
@@ -137,25 +137,25 @@ class ScanFrame(QtWidgets.QFrame):
         self.view.setModel(self.proxy)
 
         # configure step box, sync checkbox, and buttons
-        checkbox = QtWidgets.QCheckBox('Disable sync')
+        checkbox = QtWidgets.QCheckBox('Disable sync', parent=self)
         # noinspection PyUnresolvedReferences
         checkbox.stateChanged[int].connect(self.set_model_sync_flag)
-        self.stepbox = QtWidgets.QSpinBox()
+        self.stepbox = QtWidgets.QSpinBox(parent=self)
         self.stepbox.setMaximum(max_step)
         self.stepbox.setValue(1)
         # noinspection PyUnresolvedReferences
         self.stepbox.valueChanged[int].connect(self.delegate.set_step_size)
-        step_label = QtWidgets.QLabel('&Step Size:')
+        step_label = QtWidgets.QLabel('&Step Size:', parent=self)
         step_label.setBuddy(self.stepbox)
-        save_button = QtWidgets.QPushButton('Save To File...')
+        save_button = QtWidgets.QPushButton('Save To File...', parent=self)
         # noinspection PyUnresolvedReferences
         save_button.clicked.connect(self.save_to_file)
-        set_button = QtWidgets.QPushButton('Set From File')
+        set_button = QtWidgets.QPushButton('Set From File', parent=self)
         # noinspection PyUnresolvedReferences
         set_button.clicked.connect(self.set_from_file)
 
         # populate frame
-        self.lay = QtWidgets.QGridLayout()
+        self.lay = QtWidgets.QGridLayout(parent=self)
         self.lay.addWidget(sel_label, 0, 0)
         self.lay.addWidget(chain_sel, 0, 1, 1, 2)
         self.lay.addWidget(filter_label, 1, 0)
