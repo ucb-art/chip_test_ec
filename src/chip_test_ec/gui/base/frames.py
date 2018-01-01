@@ -162,18 +162,13 @@ class ScanDisplayFrame(FrameBase):
         # noinspection PyUnresolvedReferences
         self.scanChainChanged[str].connect(self._update_from_scan)
 
+        # configure frame outline
+        self.setLineWidth(1)
+        self.setMidLineWidth(1)
+        self.setFrameStyle(QtWidgets.QFrame.Box | QtWidgets.QFrame.Raised)
+
         # create display frame
-        disp_frame, self.disp_list, self.chain_names = self.create_displays(self.ctrl.fpga, specs, font_size)
-
-        # create control frame
-        ctrl_frame, self.refresh_timer, self.update_button, self.activity_movie = self.create_controls()
-
-        # add subframes to frame
-        self.lay.setSpacing(0)
-        self.lay.addWidget(disp_frame, 0, 0)
-        self.lay.addWidget(ctrl_frame, 1, 0)
-        self.lay.setRowStretch(0, 1)
-        self.lay.setRowStretch(1, 0)
+        self.disp_list, self.chain_names = self.create_displays(self.ctrl.fpga, specs, font_size)
 
     def create_displays(self, fpga, specs, font_size):
         disp_font = QtGui.QFont('Monospace')
@@ -182,7 +177,6 @@ class ScanDisplayFrame(FrameBase):
 
         align_label = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
         disp_list = []
-        frame, lay = self.create_sub_frame()
         row_idx, col_idx = 0, 0
         update_chains = set()
         for disp_col in specs:
@@ -218,54 +212,15 @@ class ScanDisplayFrame(FrameBase):
                 disp_field = QtWidgets.QLabel(disp_str, parent=self)
                 disp_field.setFont(disp_font)
 
-                lay.addWidget(label, row_idx, col_idx)
-                lay.addWidget(disp_field, row_idx, col_idx + 1)
+                self.lay.addWidget(label, row_idx, col_idx)
+                self.lay.addWidget(disp_field, row_idx, col_idx + 1)
                 disp_list.append((disp_field, chain_name, bus_name, disp_type, num_bits, (start, step)))
                 row_idx += 1
 
             row_idx = 0
             col_idx += 2
 
-        return frame, disp_list, update_chains
-
-    def create_controls(self):
-        # refresh timer object
-        refresh_timer = QtCore.QTimer(parent=self)
-        refresh_timer.setInterval(200)
-        # noinspection PyUnresolvedReferences
-        refresh_timer.timeout.connect(self._refresh_display)
-
-        # refresh interval spin box
-        update_box = QtWidgets.QSpinBox(parent=self)
-        update_box.setSingleStep(1)
-        update_box.setMinimum(0)
-        update_box.setMaximum(5000)
-        update_box.setValue(refresh_timer.interval())
-        # noinspection PyUnresolvedReferences
-        update_box.valueChanged[int].connect(self._update_refresh_rate)
-
-        check_box = QtWidgets.QCheckBox('Real-time refresh (ms):', parent=self)
-        check_box.setCheckState(QtCore.Qt.Unchecked)
-        # noinspection PyUnresolvedReferences
-        check_box.stateChanged[int].connect(self._update_refresh)
-
-        update_button = QtWidgets.QPushButton('Update', parent=self)
-        update_button.setEnabled(True)
-        # noinspection PyUnresolvedReferences
-        update_button.clicked.connect(self._refresh_display)
-
-        activity_movie = QtGui.QMovie(activity_gif, parent=self)
-        activity_movie.jumpToNextFrame()
-        activity_label = QtWidgets.QLabel(parent=self)
-        activity_label.setMovie(activity_movie)
-
-        frame, lay = self.create_sub_frame()
-        lay.addWidget(check_box, 0, 0, alignment=QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        lay.addWidget(update_box, 0, 1, alignment=QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-        lay.addWidget(update_button, 0, 2)
-        lay.addWidget(activity_label, 0, 3)
-
-        return frame, refresh_timer, update_button, activity_movie
+        return disp_list, update_chains
 
     @QtCore.pyqtSlot(str)
     def _update_from_scan(self, chain_name):
@@ -281,27 +236,6 @@ class ScanDisplayFrame(FrameBase):
                     # MSB binary string has index 0
                     disp_str = np.binary_repr(scan_val, nbits)[step - start - 1::step]
                 disp_field.setText(disp_str)
-
-            self.activity_movie.jumpToNextFrame()
-
-    @QtCore.pyqtSlot()
-    def _refresh_display(self):
-        fpga = self.ctrl.fpga
-        for chain_name in self.chain_names:
-            fpga.update_scan(chain_name)
-
-    @QtCore.pyqtSlot(int)
-    def _update_refresh_rate(self, val):
-        self.refresh_timer.setInterval(val)
-
-    @QtCore.pyqtSlot(int)
-    def _update_refresh(self, val):
-        if val == QtCore.Qt.Checked:
-            self.update_button.setEnabled(False)
-            self.refresh_timer.start()
-        else:
-            self.update_button.setEnabled(True)
-            self.refresh_timer.stop()
 
 
 class ScanControlFrame(FrameBase):
@@ -347,10 +281,8 @@ class ScanControlFrame(FrameBase):
         align_value = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
         spin_box_list = []
         val_label_lookup = {}
-        row_idx, col_idx = 0, -2
+        row_idx, col_idx = 0, 0
         for spin_box_col in spin_boxes:
-            row_idx = 0
-            col_idx += 2
             for spin_info in spin_box_col:
                 chain_name = spin_info['chain']
                 bus_name = spin_info['bus']
@@ -412,21 +344,8 @@ class ScanControlFrame(FrameBase):
                 row_idx += 1
                 spin_box_list.append(spin_box)
 
-        # create/add step size spin box
-        step_box = QtWidgets.QSpinBox(parent=self)
-        step_box.setSingleStep(1)
-        step_box.setMinimum(1)
-        step_box.setMaximum(128)
-        step_box.setValue(1)
-        # noinspection PyUnresolvedReferences
-        step_box.valueChanged[int].connect(self._update_step_size)
-
-        step_label = QtWidgets.QLabel('Step Size', parent=self)
-        self.lay.addWidget(step_label, row_idx, col_idx, 1, 2)
-        self.lay.addWidget(step_box, row_idx + 1, col_idx)
-
-        row_idx = 0
-        col_idx += 2
+            row_idx = 0
+            col_idx += 2
 
         # add check boxes
         check_box_list = []
@@ -506,6 +425,6 @@ class ScanControlFrame(FrameBase):
             fpga.update_scan(chain_name)
 
     @QtCore.pyqtSlot(int)
-    def _update_step_size(self, val):
+    def update_step_size(self, val):
         for spin_box in self.spin_box_list:
             spin_box.setSingleStep(val)

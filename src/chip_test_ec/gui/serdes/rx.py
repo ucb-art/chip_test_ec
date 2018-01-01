@@ -8,18 +8,17 @@ import os
 import pkg_resources
 
 import yaml
-import numpy as np
-from sklearn.isotonic import IsotonicRegression
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from ...backend.core import Controller
 from ..base.displays import LogWidget
+from ..base.frames import FrameBase, ScanDisplayFrame, ScanControlFrame
 
 activity_gif = pkg_resources.resource_filename('chip_test_ec.gui', os.path.join('resources', 'ajax-loader.gif'))
 
 
-class RXControlFrame(QtWidgets.QFrame):
+class RXControlFrame(FrameBase):
     """A Frame that displays all RX controls and real time update of RX output.
 
     Parameters
@@ -34,367 +33,138 @@ class RXControlFrame(QtWidgets.QFrame):
         the font size for this frame.]
     """
 
-    scanChainChanged = QtCore.pyqtSignal(str)
-
-    def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget, font_size: int=11):
-        super(RXControlFrame, self).__init__()
-        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-        self.ctrl = ctrl
+    def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget, font_size: int=11, parent=None):
+        super(RXControlFrame, self).__init__(ctrl, font_size=font_size, parent=parent)
         self.logger = logger
-
-        # noinspection PyUnresolvedReferences
-        ctrl.fpga.add_callback(self.scanChainChanged.emit)
-        # noinspection PyUnresolvedReferences
-        self.scanChainChanged[str].connect(self._update_from_scan)
-
-        # set font
-        font = QtGui.QFont()
-        font.setPointSize(font_size)
-        self.setFont(font)
 
         with open(specs_fname, 'r') as f:
             config = yaml.load(f)
 
-        char_dir = config['char_dir']
-        controls = config['controls']
-        displays = config['displays']
-        num_rows_disp = config['num_rows_disp']
+        # create display frame
+        self.disp_frame = ScanDisplayFrame(self.ctrl, config['displays'], font_size=font_size, parent=self)
+        # create control frame
+        ctrl_frame = ScanControlFrame(self.ctrl, config['controls'], font_size=font_size, parent=self)
 
-        self.char_dir = os.path.abspath(char_dir)
-        # create controls
-        tmp = self.create_controls(self.ctrl.fpga, controls, char_dir)
-        ctrl_widgets, self.spin_box_list, self.check_box_list, self.val_lookup = tmp
-
-        # create displays
-        self.disp_widgets = self.create_displays(self.ctrl.fpga, displays, font_size)
-
-        # create panel controls
-        tmp = self.create_panel_controls()
+        # create panel control frame
+        tmp = self.create_panel_controls(ctrl_frame, config['supplies'])
         pc_frame = tmp[0]
         self.step_box = tmp[1]
-        self.refresh_spinbox = tmp[2]
-        self.update_button = tmp[3]
-        self.activity_movie = tmp[4]
-        self.refresh_timer = tmp[5]
-        self.sup_field = tmp[6]
+        self.update_box = tmp[2]
+        self.check_box = tmp[3]
+        self.update_button = tmp[4]
+        self.sup_field = tmp[5]
+        self.activity_movie = tmp[6]
+        self.refresh_timer = tmp[7]
 
         # populate frame
-        self.lay = QtWidgets.QVBoxLayout()
         self.lay.setSpacing(0)
-        self.lay.setContentsMargins(0, 0, 0, 0)
-        # add displays
-        disp_frame, disp_lay = self.create_sub_frame()
-        row_idx, col_idx = 0, 0
-        for label, disp_field, _, _, _, _, _ in self.disp_widgets:
-            disp_lay.addWidget(label, row_idx, col_idx)
-            disp_lay.addWidget(disp_field, row_idx, col_idx + 1)
-            row_idx += 1
-            if row_idx == num_rows_disp:
-                row_idx = 0
-                col_idx += 2
-        self.lay.addWidget(disp_frame)
+        self.lay.addWidget(self.disp_frame, 0, 0)
+        self.lay.addWidget(ctrl_frame, 1, 0)
+        self.lay.addWidget(pc_frame, 2, 0)
 
-        # add controls
-        ctrl_frame, ctrl_lay = self.create_sub_frame()
-        row_idx, col_idx = 0, 0
-        for widgets_col in ctrl_widgets:
-            for widgets in widgets_col:
-                if len(widgets) == 1:
-                    # single checkbox
-                    ctrl_lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
-                    row_idx += 1
-                elif len(widgets) == 2:
-                    # label and spinbox
-                    ctrl_lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
-                    ctrl_lay.addWidget(widgets[1], row_idx + 1, col_idx)
-                    row_idx += 2
-                else:
-                    # label, spinbox, and value label
-                    ctrl_lay.addWidget(widgets[0], row_idx, col_idx, 1, 2)
-                    ctrl_lay.addWidget(widgets[1], row_idx + 1, col_idx)
-                    ctrl_lay.addWidget(widgets[2], row_idx + 1, col_idx + 1)
-                    row_idx += 2
-            row_idx = 0
-            col_idx += 2
-        self.lay.addWidget(ctrl_frame)
-
-        # add configuration panel
-        self.lay.addWidget(pc_frame)
-
-        self.setLayout(self.lay)
-
-    def create_sub_frame(self):
-        frame = QtWidgets.QFrame(parent=self)
-        frame.setContentsMargins(0, 0, 0, 0)
-        frame.setLineWidth(1)
-        frame.setMidLineWidth(1)
-        frame.setFrameStyle(QtWidgets.QFrame.Box | QtWidgets.QFrame.Raised)
-        lay = QtWidgets.QGridLayout()
-        frame.setLayout(lay)
-        return frame, lay
-
-    def create_panel_controls(self):
+    def create_panel_controls(self, ctrl_frame, supply_list):
         align_label = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
+        align_box = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
 
-        frame, lay = self.create_sub_frame()
         step_box = QtWidgets.QSpinBox(parent=self)
         step_box.setSingleStep(1)
         step_box.setMinimum(1)
         step_box.setMaximum(128)
         step_box.setValue(1)
         # noinspection PyUnresolvedReferences
-        step_box.valueChanged[int].connect(self.update_step_size)
-        step_label = QtWidgets.QLabel('Step size:', parent=self)
+        step_box.valueChanged[int].connect(ctrl_frame.update_step_size)
+        step_label = QtWidgets.QLabel('Step Size:', parent=self)
         step_label.setAlignment(align_label)
 
+        # refresh timer object
         refresh_timer = QtCore.QTimer(parent=self)
         refresh_timer.setInterval(200)
         # noinspection PyUnresolvedReferences
-        refresh_timer.timeout.connect(self.update_display)
+        refresh_timer.timeout.connect(self._refresh_display)
 
+        # refresh interval spin box
         update_box = QtWidgets.QSpinBox(parent=self)
         update_box.setSingleStep(1)
         update_box.setMinimum(0)
         update_box.setMaximum(5000)
         update_box.setValue(refresh_timer.interval())
         # noinspection PyUnresolvedReferences
-        update_box.valueChanged[int].connect(self.update_refresh_rate)
-        update_label = QtWidgets.QLabel('Refresh rate (ms):', parent=self)
-        update_label.setAlignment(align_label)
+        update_box.valueChanged[int].connect(self._update_refresh_rate)
 
-        check_box = QtWidgets.QCheckBox('Real-time refresh', parent=self)
+        check_box = QtWidgets.QCheckBox('Real-time refresh (ms):', parent=self)
         check_box.setCheckState(QtCore.Qt.Unchecked)
         # noinspection PyUnresolvedReferences
-        check_box.stateChanged[int].connect(self.update_refresh)
+        check_box.stateChanged[int].connect(self._update_refresh)
+
+        update_button = QtWidgets.QPushButton('Update', parent=self)
+        update_button.setEnabled(True)
+        # noinspection PyUnresolvedReferences
+        update_button.clicked.connect(self._refresh_display)
 
         activity_movie = QtGui.QMovie(activity_gif, parent=self)
         activity_movie.jumpToNextFrame()
-        update_button = QtWidgets.QPushButton('Update', parent=self)
-        update_button.setIcon(QtGui.QIcon(activity_movie.currentPixmap()))
-        update_button.setEnabled(True)
-        # noinspection PyUnresolvedReferences
-        update_button.clicked.connect(self.update_display)
+        activity_label = QtWidgets.QLabel(parent=self)
+        activity_label.setMovie(activity_movie)
 
-        sup_field = QtWidgets.QLineEdit(parent=self)
-        sup_field.setText('SERDES_AVDD')
+        sup_field = QtWidgets.QComboBox(parent=self)
+        for sup_name in supply_list:
+            sup_field.addItem(sup_name)
+        sup_field.setCurrentIndex(0)
+
         sup_label = QtWidgets.QLabel('Supply:', parent=self)
         sup_label.setAlignment(align_label)
+
         imeas_button = QtWidgets.QPushButton('Measure Current', parent=self)
         # noinspection PyUnresolvedReferences
-        imeas_button.clicked.connect(self.measure_current)
+        imeas_button.clicked.connect(self._measure_current)
 
         save_button = QtWidgets.QPushButton('Save As...', parent=self)
         # noinspection PyUnresolvedReferences
-        save_button.clicked.connect(self.save_as)
+        save_button.clicked.connect(self._save_as)
+
         load_button = QtWidgets.QPushButton('Load From...', parent=self)
         # noinspection PyUnresolvedReferences
-        load_button.clicked.connect(self.load_from)
+        load_button.clicked.connect(self._load_from)
 
-        lay.addWidget(step_label, 0, 0)
-        lay.addWidget(step_box, 0, 1)
-        lay.addWidget(update_label, 0, 2)
-        lay.addWidget(update_box, 0, 3)
-        lay.addWidget(check_box, 0, 4)
-        lay.addWidget(update_button, 0, 5)
-        lay.addWidget(sup_label, 1, 0)
-        lay.addWidget(sup_field, 1, 1)
-        lay.addWidget(imeas_button, 1, 2, 1, 2)
-        lay.addWidget(save_button, 1, 4)
-        lay.addWidget(load_button, 1, 5)
+        frame, lay = self.create_sub_frame()
+        lay.addWidget(step_label, 0, 0, alignment=align_label)
+        lay.addWidget(step_box, 0, 1, alignment=align_box)
+        lay.addWidget(check_box, 0, 2, alignment=align_label)
+        lay.addWidget(update_box, 0, 3, alignment=align_box)
+        lay.addWidget(update_button, 0, 4)
+        lay.addWidget(activity_label, 0, 5)
+        lay.addWidget(sup_label, 1, 0, alignment=align_label)
+        lay.addWidget(sup_field, 1, 1, alignment=align_box)
+        lay.addWidget(imeas_button, 1, 2)
+        lay.addWidget(save_button, 1, 3)
+        lay.addWidget(load_button, 1, 4)
 
-        return frame, step_box, update_box, update_button, activity_movie, refresh_timer, sup_field
+        return frame, step_box, update_box, check_box, update_button, sup_field, activity_movie, refresh_timer
 
-    def create_displays(self, fpga, displays, font_size):
-        disp_font = QtGui.QFont('Monospace')
-        disp_font.setStyleHint(QtGui.QFont.TypeWriter)
-        disp_font.setPointSize(font_size)
-
-        widgets = []
-        for entry in displays:
-            chain_name, bus_name, disp_type = entry[:3]
-            num_bits = fpga.get_scan_length(chain_name, bus_name)
-            scan_val = fpga.get_scan(chain_name, bus_name)
-            des_num = 1 if len(entry) < 4 else entry[3]
-            label = QtWidgets.QLabel(bus_name, parent=self)
-            label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-            if disp_type == 'int':
-                disp_str = str(scan_val)
-            else:
-                disp_str = np.binary_repr(scan_val, num_bits)
-            disp_field = QtWidgets.QLabel(disp_str, parent=self)
-            disp_field.setFont(disp_font)
-            widgets.append((label, disp_field, chain_name, bus_name, disp_type, num_bits, (0, 1)))
-            if des_num > 1:
-                for idx in range(des_num):
-                    label = QtWidgets.QLabel(bus_name + ('[%d]' % idx), parent=self)
-                    label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-                    start = des_num - idx - 1
-                    disp_field = QtWidgets.QLabel(disp_str[start::des_num],
-                                                  parent=self)
-                    disp_field.setFont(disp_font)
-                    widgets.append((label, disp_field, chain_name, bus_name, disp_type, num_bits, (start, des_num)))
-
-        return widgets
-
-    def create_controls(self, fpga, controls, char_dir):
-        widgets = []
-        check_box_list = []
-        spin_box_list = []
-        val_label_lookup = {}
-        for column in controls:
-            widgets_col = []
-            for entry in column:
-                chain_name, bus_name = entry[:2]
-                obj_name = '%s.%s' % (chain_name, bus_name)
-                scan_val = fpga.get_scan(chain_name, bus_name)
-                num_bits = fpga.get_scan_length(chain_name, bus_name)
-                if len(entry) < 3:
-                    fname, scale, unit = None, 1.0, ''
-                else:
-                    fname, scale, unit = entry[2:5]
-
-                if num_bits == 1:
-                    check_box = QtWidgets.QCheckBox(bus_name, parent=self)
-                    check_box.setObjectName(obj_name)
-                    check_state = QtCore.Qt.Checked if scan_val else QtCore.Qt.Unchecked
-                    check_box.setCheckState(check_state)
-                    # noinspection PyUnresolvedReferences
-                    check_box.stateChanged[int].connect(self.update_scan)
-                    widgets_col.append((check_box, ))
-                    check_box_list.append(check_box)
-                else:
-                    name_label = QtWidgets.QLabel(bus_name, parent=self)
-                    spin_box = QtWidgets.QSpinBox(parent=self)
-                    spin_box.setObjectName(obj_name)
-                    spin_box.setSingleStep(1)
-                    spin_box_list.append(spin_box)
-                    if fname:
-                        # load characterization file
-                        mat = np.loadtxt(os.path.join(char_dir, fname))
-                        # fit with monotonic regression
-                        reg = IsotonicRegression(increasing='auto')
-                        xvec = mat[:, 0]
-                        offset = int(round(np.min(xvec)))
-                        yvec_mono = reg.fit_transform(xvec, mat[:, 1])
-                        # set max and min based on characterization file
-                        max_val = int(round(np.max(xvec)))
-                        spin_box.setMaximum(max_val)
-                        spin_box.setMinimum(offset)
-                        if scan_val < offset or scan_val > max_val:
-                            raise ValueError('Default scan values outside characterization bounds')
-                        spin_box.setValue(scan_val)
-                        val_text = '%.4g %s' % (yvec_mono[scan_val - offset] * scale, unit)
-                        val_label = QtWidgets.QLabel(val_text, parent=self)
-                        val_label.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-                        val_label_lookup[obj_name] = (val_label, offset, scale, unit, yvec_mono)
-                        # noinspection PyUnresolvedReferences
-                        spin_box.valueChanged[int].connect(self.update_label)
-                        widgets_col.append((name_label, spin_box, val_label))
-                    else:
-                        spin_box.setMaximum((1 << num_bits) - 1)
-                        spin_box.setMinimum(0)
-                        spin_box.setValue(scan_val)
-                        widgets_col.append((name_label, spin_box))
-
-                    # noinspection PyUnresolvedReferences
-                    spin_box.valueChanged[int].connect(self.update_scan)
-
-            widgets.append(widgets_col)
-
-        return widgets, spin_box_list, check_box_list, val_label_lookup
-
-    @QtCore.pyqtSlot(str)
-    def _update_from_scan(self, chain_name):
+    @QtCore.pyqtSlot()
+    def _refresh_display(self):
         fpga = self.ctrl.fpga
-
-        # update displays
-        changed = False
-        for (_, disp_field, cur_chain_name, bus_name, disp_type, nbits, (start, des_num)) in self.disp_widgets:
-            if cur_chain_name == chain_name:
-                scan_val = fpga.get_scan(chain_name, bus_name)
-                changed = True
-                if disp_type == 'int':
-                    disp_str = str(scan_val)
-                else:
-                    disp_str = np.binary_repr(scan_val, nbits)[start::des_num]
-                disp_field.setText(disp_str)
-
-        # update controls
-        for spin_box in self.spin_box_list:
-            obj_name = spin_box.objectName()
-            cur_chain_name, bus_name = obj_name.split('.', 1)
-            cur_value = spin_box.value()
-            if cur_chain_name == chain_name:
-                new_value = fpga.get_scan(chain_name, bus_name)
-                if cur_value != new_value:
-                    changed = True
-                    spin_box.setValue(new_value)
-        for check_box in self.check_box_list:
-            obj_name = check_box.objectName()
-            cur_chain_name, bus_name = obj_name.split('.', 1)
-            cur_state = check_box.checkState()
-            if cur_chain_name == chain_name:
-                new_value = fpga.get_scan(chain_name, bus_name)
-                new_state = QtCore.Qt.Checked if new_value == 1 else QtCore.Qt.Unchecked
-                if cur_state != new_state:
-                    changed = True
-                    check_box.setCheckState(new_state)
-
-        if changed:
-            self.activity_movie.jumpToNextFrame()
-            self.update_button.setIcon(QtGui.QIcon(self.activity_movie.currentPixmap()))
-
-    @QtCore.pyqtSlot(int)
-    def update_scan(self, val):
-        send_obj = self.sender()
-        if isinstance(send_obj, QtWidgets.QCheckBox):
-            val = 1 if val == QtCore.Qt.Checked else 0
-        obj_name = send_obj.objectName()
-        chain_name, bus_name = obj_name.split('.', 1)
-        fpga = self.ctrl.fpga
-        cur_val = fpga.get_scan(chain_name, bus_name)
-        if cur_val != val:
-            fpga.set_scan(chain_name, bus_name, val)
+        for chain_name in self.disp_frame.chain_names:
             fpga.update_scan(chain_name)
 
-    @QtCore.pyqtSlot(int)
-    def update_label(self, val):
-        obj_name = self.sender().objectName()
-        val_label, offset, scale, unit, yvec = self.val_lookup[obj_name]
-        val_label.setText('%.4g %s' % (yvec[val - offset] * scale, unit))
+        self.activity_movie.jumpToNextFrame()
 
     @QtCore.pyqtSlot(int)
-    def update_step_size(self, val):
-        for spin_box in self.spin_box_list:
-            spin_box.setSingleStep(val)
+    def _update_refresh_rate(self, val):
+        self.refresh_timer.setInterval(val)
 
     @QtCore.pyqtSlot(int)
-    def update_refresh(self, val):
+    def _update_refresh(self, val):
         if val == QtCore.Qt.Checked:
             self.update_button.setEnabled(False)
             self.refresh_timer.start()
         else:
             self.update_button.setEnabled(True)
-            self.update_button.setText('Update')
             self.refresh_timer.stop()
 
-    @QtCore.pyqtSlot(int)
-    def update_refresh_rate(self, val):
-        self.refresh_timer.setInterval(val)
-
     @QtCore.pyqtSlot()
-    def update_display(self):
-        update_chains = set()
-        for (_, _, chain_name, _, _, _, _) in self.disp_widgets:
-            update_chains.add(chain_name)
-
-        fpga = self.ctrl.fpga
-        for chain_name in update_chains:
-            fpga.update_scan(chain_name)
-
-    @QtCore.pyqtSlot()
-    def measure_current(self):
-        sup_name = self.sup_field.text()
+    def _measure_current(self):
+        sup_name = self.sup_field.currentText()
         try:
             current = self.ctrl.fpga.read_current(sup_name)
             self.logger.println('%s current: %.6g mA' % (sup_name, current * 1e3))
@@ -402,20 +172,20 @@ class RXControlFrame(QtWidgets.QFrame):
             self.logger.println(str(ex))
 
     @QtCore.pyqtSlot()
-    def save_as(self):
+    def _save_as(self):
         cur_dir = os.getcwd()
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', cur_dir, 'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             self.logger.println('Saving to file: %s' % fname)
             attrs = dict(step_size=self.step_box.value(),
-                         supply=self.sup_field.text(),
-                         refresh_rate=self.refresh_spinbox.value(),
+                         refresh_rate=self.update_box.value(),
+                         supply_idx=self.sup_field.currentIndex(),
                          )
             self.ctrl.fpga.save_scan_to_file(fname, rx_gui=attrs)
 
     @QtCore.pyqtSlot()
-    def load_from(self):
+    def _load_from(self):
         cur_dir = os.getcwd()
         fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', cur_dir, 'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
@@ -425,6 +195,7 @@ class RXControlFrame(QtWidgets.QFrame):
                 config = yaml.load(f)['rx_gui']
 
             self.step_box.setValue(config['step_size'])
-            self.sup_field.setText(config['supply'])
-            self.refresh_spinbox.setValue(config['refresh_rate'])
+            self.update_box.setValue(config['refresh_rate'])
+            self.sup_field.setCurrentIndex(config['supply_idx'])
+            self.check_box.setCheckState(QtCore.Qt.Unchecked)
             self.ctrl.fpga.set_scan_from_file(fname)
