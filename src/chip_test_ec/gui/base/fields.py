@@ -347,3 +347,6 @@ class LineEditBinary(QtWidgets.QLineEdit):
         self.disp_font = QtGui.QFont('Monospace')
         self.disp_font.setStyleHint(QtGui.QFont.TypeWriter)
         self.setFont(self.disp_font)
+
+        metric = QtGui.QFontMetrics(self.disp_font)
+        self.setMinimumWidth(metric.width('0' * num_bits))
