@@ -155,7 +155,7 @@ class ScanFrame(QtWidgets.QFrame):
         set_button.clicked.connect(self.set_from_file)
 
         # populate frame
-        self.lay = QtWidgets.QGridLayout(parent=self)
+        self.lay = QtWidgets.QGridLayout(self)
         self.lay.addWidget(sel_label, 0, 0)
         self.lay.addWidget(chain_sel, 0, 1, 1, 2)
         self.lay.addWidget(filter_label, 1, 0)
@@ -176,8 +176,6 @@ class ScanFrame(QtWidgets.QFrame):
         self.lay.setColumnStretch(1, 0)
         self.lay.setColumnStretch(2, 0)
         self.lay.setColumnStretch(3, 1)
-
-        self.setLayout(self.lay)
 
     @QtCore.pyqtSlot(int)
     def change_model(self, idx):

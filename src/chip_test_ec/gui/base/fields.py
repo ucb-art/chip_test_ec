@@ -23,18 +23,17 @@ class FileField(QtWidgets.QFrame):
         True if this field is for selecting a directory.
     """
 
-    def __init__(self, init_text: str, get_dir: bool = False) -> None:
-        super(FileField, self).__init__()
+    def __init__(self, init_text: str, get_dir: bool = False, parent=None) -> None:
+        super(FileField, self).__init__(parent=parent)
 
-        self.edit = QtWidgets.QLineEdit(init_text)
+        self.edit = QtWidgets.QLineEdit(init_text, parent=self)
         self.get_dir = get_dir
-        browse = QtWidgets.QPushButton('...')
+        browse = QtWidgets.QPushButton('...', parent=self)
 
         # noinspection PyUnresolvedReferences
         browse.clicked.connect(self._open_browser)
 
-        self.lay = QtWidgets.QHBoxLayout()
-        self.setLayout(self.lay)
+        self.lay = QtWidgets.QHBoxLayout(self)
         self.lay.addWidget(self.edit)
         self.lay.addWidget(browse)
         self.lay.setStretch(0, 1)
@@ -83,8 +82,8 @@ class MetricSpinBox(QtWidgets.QDoubleSpinBox):
     prefix_exp = [-24, -21, -18, -15, -12, -9, -6, -3, 0,
                   3, 6, 9, 12, 15, 18, 21, 24]
 
-    def __init__(self, vmin: float, vmax: float, vstep: float, precision: int) -> None:
-        super(MetricSpinBox, self).__init__()
+    def __init__(self, vmin: float, vmax: float, vstep: float, precision: int, parent=None) -> None:
+        super(MetricSpinBox, self).__init__(parent=parent)
         exp = int(math.floor(math.log10(vstep)))
         if exp < self.prefix_exp[0] or exp > self.prefix_exp[-1]:
             prefix = 'e{}'.format(exp)

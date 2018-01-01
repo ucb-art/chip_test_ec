@@ -31,21 +31,19 @@ class FormDialog(QtWidgets.QDialog):
         super(FormDialog, self).__init__(parent)
         self.setWindowTitle(title)
         self.setModal(True)
-        self.ok_button = QtWidgets.QPushButton('OK')
-        self.cancel_button = QtWidgets.QPushButton('Cancel')
+        self.ok_button = QtWidgets.QPushButton('OK', parent=self)
+        self.cancel_button = QtWidgets.QPushButton('Cancel', parent=self)
         # noinspection PyUnresolvedReferences
         self.ok_button.clicked.connect(self.accept)
         # noinspection PyUnresolvedReferences
         self.cancel_button.clicked.connect(self.reject)
 
-        bot_lay = QtWidgets.QHBoxLayout()
+        bot_frame = QtWidgets.QFrame(parent=self)
+        bot_lay = QtWidgets.QHBoxLayout(bot_frame)
         bot_lay.addWidget(self.ok_button)
         bot_lay.addWidget(self.cancel_button)
-        bot_frame = QtWidgets.QFrame()
-        bot_frame.setLayout(bot_lay)
 
-        self.lay = QtWidgets.QVBoxLayout()
-        self.setLayout(self.lay)
+        self.lay = QtWidgets.QVBoxLayout(self)
         self.lay.addWidget(frame)
         self.lay.addWidget(bot_frame)
 
@@ -85,9 +83,9 @@ class FuncDialog(QtWidgets.QDialog):
         self.setModal(True)
 
         self.param_edit = TitledForm(name, conf_path, specs, font_size=font_size,
-                                     buttons=False, show_title=False)
-        self.ok_button = QtWidgets.QPushButton('Start')
-        self.cancel_button = QtWidgets.QPushButton('Abort')
+                                     buttons=False, show_title=False, parent=self)
+        self.ok_button = QtWidgets.QPushButton('Start', parent=self)
+        self.cancel_button = QtWidgets.QPushButton('Abort', parent=self)
         # noinspection PyUnresolvedReferences
         self.ok_button.clicked.connect(self.start_task)
         # noinspection PyUnresolvedReferences
@@ -96,14 +94,12 @@ class FuncDialog(QtWidgets.QDialog):
 
         self.logger = LogWidget()
 
-        bot_lay = QtWidgets.QHBoxLayout()
+        bot_frame = QtWidgets.QFrame(parent=self)
+        bot_lay = QtWidgets.QHBoxLayout(bot_frame)
         bot_lay.addWidget(self.ok_button)
         bot_lay.addWidget(self.cancel_button)
-        bot_frame = QtWidgets.QFrame()
-        bot_frame.setLayout(bot_lay)
 
-        lay = QtWidgets.QVBoxLayout()
-        self.setLayout(lay)
+        lay = QtWidgets.QVBoxLayout(self)
         lay.addWidget(self.param_edit)
         lay.addWidget(bot_frame)
         lay.addWidget(self.logger)

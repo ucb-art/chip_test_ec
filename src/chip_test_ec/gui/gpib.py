@@ -47,8 +47,7 @@ class GPIBFrame(QtWidgets.QFrame):
         # noinspection PyUnresolvedReferences
         self.w_cmd.returnPressed.connect(self.send_write)
 
-        lay = QtWidgets.QFormLayout(parent=parent)
-        self.setLayout(lay)
+        lay = QtWidgets.QFormLayout(self)
         lay.addRow('Device: ', self.dev_sel)
         lay.addRow('Query Cmd: ', self.q_cmd)
         lay.addRow('Write Cmd: ', self.w_cmd)

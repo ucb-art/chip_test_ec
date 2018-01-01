@@ -47,9 +47,8 @@ class FrameBase(QtWidgets.QFrame):
         self.setFont(font)
 
         # set layout manager
-        self.lay = QtWidgets.QGridLayout(parent=self)
+        self.lay = QtWidgets.QGridLayout(self)
         self.lay.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(self.lay)
 
     def create_sub_frame(self):
         """Create a sub-frame with outline, using QGridLayout."""
@@ -57,9 +56,8 @@ class FrameBase(QtWidgets.QFrame):
         frame.setLineWidth(1)
         frame.setMidLineWidth(1)
         frame.setFrameStyle(QtWidgets.QFrame.Box | QtWidgets.QFrame.Raised)
-        lay = QtWidgets.QGridLayout(parent=frame)
+        lay = QtWidgets.QGridLayout(frame)
         lay.setContentsMargins(0, 0, 0, 0)
-        frame.setLayout(lay)
         return frame, lay
 
 
@@ -93,8 +91,9 @@ class FuncFrame(QtWidgets.QFrame):
     font_size : int
         the frame font size.
     """
-    def __init__(self, ctrl: Controller, conf_path: str, logger: LogWidget, vfunc_list, func_list, font_size=11):
-        super(FuncFrame, self).__init__()
+    def __init__(self, ctrl: Controller, conf_path: str, logger: LogWidget, vfunc_list, func_list,
+                 font_size=11, parent=None):
+        super(FuncFrame, self).__init__(parent=parent)
 
         # set font
         font = QtGui.QFont()
@@ -108,15 +107,14 @@ class FuncFrame(QtWidgets.QFrame):
         self.vfunc_list = vfunc_list
         self.func_list = func_list
 
-        lay = QtWidgets.QVBoxLayout()
-        self.setLayout(lay)
+        lay = QtWidgets.QVBoxLayout(self)
 
         for slot, flist in zip([self.run_vfunc, self.run_func],
                                [vfunc_list, func_list]):
             mapper = QtCore.QSignalMapper(self)
             for idx, fobj in enumerate(flist):
                 fun_name = fobj[0]
-                button = QtWidgets.QPushButton(fun_name)
+                button = QtWidgets.QPushButton(fun_name, parent=self)
                 # noinspection PyUnresolvedReferences
                 button.clicked.connect(mapper.map)
                 mapper.setMapping(button, idx)

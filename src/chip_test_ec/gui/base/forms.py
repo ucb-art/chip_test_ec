@@ -29,8 +29,7 @@ def make_form(name_list: Sequence[str], widget_list: Sequence[QtWidgets.QWidget]
         a QFrame containing labels and widgets.
     """
     frame = QtWidgets.QFrame()
-    lay = QtWidgets.QFormLayout()
-    frame.setLayout(lay)
+    lay = QtWidgets.QFormLayout(frame)
     for name, widget in zip(name_list, widget_list):
         lay.addRow('&%s:' % name, widget)
     return frame
@@ -58,8 +57,8 @@ class TitledForm(QtWidgets.QGroupBox):
     committed = QtCore.pyqtSignal()
 
     def __init__(self, name: str, conf_path: str, specs: Dict[str, Any],
-                 font_size: int=11, buttons: bool=False, show_title: bool=True):
-        super(TitledForm, self).__init__()
+                 font_size: int=11, buttons: bool=False, show_title: bool=True, parent=None):
+        super(TitledForm, self).__init__(parent=parent)
 
         # set font
         font = QtGui.QFont()
@@ -89,25 +88,26 @@ class TitledForm(QtWidgets.QGroupBox):
             init_val = self.values.get(par_name, par_info['default'])
             self.values[par_name] = init_val
             if par_type == 'directory':
-                comp = FileField(init_val, get_dir=True)
+                comp = FileField(init_val, get_dir=True, parent=self)
             elif par_type == 'file':
-                comp = FileField(init_val, get_dir=False)
+                comp = FileField(init_val, get_dir=False, parent=self)
             elif par_type == 'str':
-                comp = QtWidgets.QLineEdit(init_val)
+                comp = QtWidgets.QLineEdit(init_val, parent=self)
             elif par_type == 'int':
-                comp = QtWidgets.QSpinBox()
+                comp = QtWidgets.QSpinBox(parent=self)
                 comp.setMinimum(par_info['min'])
                 comp.setMaximum(par_info['max'])
                 comp.setSingleStep(par_info.get('step', 1))
                 comp.setValue(init_val)
             elif par_type == 'float':
-                comp = MetricSpinBox(par_info['min'], par_info['max'], par_info['step'], par_info['precision'])
+                comp = MetricSpinBox(par_info['min'], par_info['max'], par_info['step'], par_info['precision'],
+                                     parent=self)
                 comp.setValue(init_val)
             elif par_type == 'bool':
-                comp = QtWidgets.QCheckBox('')
+                comp = QtWidgets.QCheckBox('', parent=self)
                 comp.setChecked(init_val)
             elif par_type == 'select':
-                comp = QtWidgets.QComboBox()
+                comp = QtWidgets.QComboBox(parent=self)
                 sel_idx = 0
                 for idx, val in enumerate(par_info['values']):
                     if val == init_val:
@@ -123,23 +123,21 @@ class TitledForm(QtWidgets.QGroupBox):
 
         body = make_form(labels, self.components)
 
-        lay = QtWidgets.QVBoxLayout()
-        self.setLayout(lay)
+        lay = QtWidgets.QVBoxLayout(self)
         lay.addWidget(body)
 
         if buttons:
-            apply_button = QtWidgets.QPushButton('Apply')
-            revert_button = QtWidgets.QPushButton('Revert')
+            apply_button = QtWidgets.QPushButton('Apply', parent=self)
+            revert_button = QtWidgets.QPushButton('Revert', parent=self)
             # noinspection PyUnresolvedReferences
             apply_button.clicked.connect(self.submit)
             # noinspection PyUnresolvedReferences
             revert_button.clicked.connect(self.revert)
 
-            bot_lay = QtWidgets.QHBoxLayout()
+            bot_frame = QtWidgets.QFrame()
+            bot_lay = QtWidgets.QHBoxLayout(bot_frame)
             bot_lay.addWidget(apply_button)
             bot_lay.addWidget(revert_button)
-            bot_frame = QtWidgets.QFrame()
-            bot_frame.setLayout(bot_lay)
             lay.addWidget(bot_frame)
 
     @property

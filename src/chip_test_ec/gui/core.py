@@ -68,11 +68,10 @@ class MainWindow(QtWidgets.QMainWindow):
             tabs.addTab(f, n)
 
         master = QtWidgets.QFrame(parent=self)
-        mlay = QtWidgets.QVBoxLayout(parent=self)
+        mlay = QtWidgets.QVBoxLayout(master)
         mlay.setSpacing(0)
         mlay.setStretch(0, 1)
         mlay.setStretch(1, 1)
-        master.setLayout(mlay)
         mlay.addWidget(tabs)
         mlay.addWidget(self.logger)
 

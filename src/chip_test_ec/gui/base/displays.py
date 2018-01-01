@@ -10,18 +10,17 @@ class LogWidget(QtWidgets.QFrame):
     def __init__(self, parent=None):
         super(LogWidget, self).__init__(parent=parent)
 
-        self.logger = QtWidgets.QPlainTextEdit()
+        self.logger = QtWidgets.QPlainTextEdit(parent=self)
         self.logger.setReadOnly(True)
 
-        button = QtWidgets.QPushButton('Clear Log')
+        button = QtWidgets.QPushButton('Clear Log', parent=self)
         # noinspection PyUnresolvedReferences
         button.clicked.connect(self.clear_log)
 
-        lay = QtWidgets.QVBoxLayout()
+        lay = QtWidgets.QVBoxLayout(self)
         lay.setSpacing(0)
         lay.setStretch(0, 1)
         lay.setStretch(1, 0)
-        self.setLayout(lay)
         lay.addWidget(self.logger)
         lay.addWidget(button)
 
