@@ -162,6 +162,48 @@ class QBigIntValidator(QtGui.QValidator):
         self._max = vmax
 
 
+class QBinaryValidator(QtGui.QValidator):
+    """A validator for big integers."""
+    def __init__(self, num_bits, parent=None):
+        super(QBinaryValidator, self).__init__(parent)
+        self._num_bits = num_bits
+
+    # noinspection PyShadowingBuiltins
+    def validate(self, input, pos):
+        if not input:
+            return QtGui.QValidator.Intermediate, input, pos
+        try:
+            val = int(input, 2)
+        except ValueError:
+            return QtGui.QValidator.Invalid, input, pos
+
+        if val < 0:
+            return QtGui.QValidator.Invalid, input, pos
+        else:
+            input_len = len(input)
+            if input_len == self._num_bits:
+                return QtGui.QValidator.Acceptable, input, pos
+            elif input_len > self._num_bits:
+                return QtGui.QValidator.Invalid, input, pos
+            else:
+                return QtGui.QValidator.Intermediate, input, pos
+
+    # noinspection PyShadowingBuiltins
+    def fixup(self, input):
+        if not input:
+            return '0' * self._num_bits
+        try:
+            val = int(input, 2)
+        except ValueError:
+            return '0' * self._num_bits
+
+        if val < 0:
+            input = input[1:]
+
+        input = input * (-(-self._num_bits // len(input)))
+        return input[:self._num_bits]
+
+
 class BigIntSpinbox(QtWidgets.QAbstractSpinBox):
     """An integer spin box that supports arbitrary integers of given length.
 
@@ -299,6 +341,9 @@ class LineEditBinary(QtWidgets.QLineEdit):
         init_str = np.binary_repr(init_val, num_bits)
         super(LineEditBinary, self).__init__(init_str, parent=parent)
 
-        regexp = QtCore.QRegExp('[01]{%d,%d}' % (num_bits, num_bits))
-        self.bin_validator = QtGui.QRegExpValidator(regexp, parent=self)
+        self.bin_validator = QBinaryValidator(num_bits, parent=self)
         self.setValidator(self.bin_validator)
+
+        self.disp_font = QtGui.QFont('Monospace')
+        self.disp_font.setStyleHint(QtGui.QFont.TypeWriter)
+        self.setFont(self.disp_font)
