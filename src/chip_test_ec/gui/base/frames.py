@@ -52,6 +52,9 @@ class FrameBase(QtWidgets.QFrame):
         self.lay = QtWidgets.QGridLayout(self)
         self.lay.setContentsMargins(0, 0, 0, 0)
 
+        self.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
+                           QtWidgets.QSizePolicy.Minimum)
+
     def create_sub_frame(self):
         """Create a sub-frame with outline, using QGridLayout."""
         frame = QtWidgets.QFrame(parent=self)
@@ -60,6 +63,10 @@ class FrameBase(QtWidgets.QFrame):
         frame.setFrameStyle(QtWidgets.QFrame.Box | QtWidgets.QFrame.Raised)
         lay = QtWidgets.QGridLayout(frame)
         lay.setContentsMargins(0, 0, 0, 0)
+
+        frame.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
+                            QtWidgets.QSizePolicy.Minimum)
+
         return frame, lay
 
 

@@ -177,6 +177,9 @@ class ScanFrame(QtWidgets.QFrame):
         self.lay.setColumnStretch(2, 0)
         self.lay.setColumnStretch(3, 1)
 
+        self.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
+                           QtWidgets.QSizePolicy.Minimum)
+
     @QtCore.pyqtSlot(int)
     def change_model(self, idx):
         self.model_idx = idx

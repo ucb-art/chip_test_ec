@@ -52,6 +52,9 @@ class GPIBFrame(QtWidgets.QFrame):
         lay.addRow('Query Cmd: ', self.q_cmd)
         lay.addRow('Write Cmd: ', self.w_cmd)
 
+        self.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
+                           QtWidgets.QSizePolicy.Minimum)
+
     @QtCore.pyqtSlot()
     def send_query(self):
         dev_name = self.name_list[self.dev_sel.currentIndex()]

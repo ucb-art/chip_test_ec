@@ -42,7 +42,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle('Chip Testing Main Window')
         # try to get Qt to delete all C++ objects before Python garbage collection kicks in
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-        tabs = QtWidgets.QTabWidget(parent=self)
+        self.tabs = QtWidgets.QTabWidget(parent=self)
 
         self.logger = LogWidget(parent=self)
 
@@ -64,19 +64,39 @@ class MainWindow(QtWidgets.QMainWindow):
             frames.append(gui_frame)
             names.append(gui_name)
 
-        for f, n in zip(frames, names):
-            tabs.addTab(f, n)
+        for idx, (f, n) in enumerate(zip(frames, names)):
+            if idx != 0:
+                f.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Ignored)
+            self.tabs.addTab(f, n)
+
+        # noinspection PyUnresolvedReferences
+        self.tabs.currentChanged[int].connect(self._update_size)
 
         master = QtWidgets.QFrame(parent=self)
         mlay = QtWidgets.QVBoxLayout(master)
         mlay.setSpacing(0)
-        mlay.setStretch(0, 1)
+        mlay.setStretch(0, 0)
         mlay.setStretch(1, 1)
-        mlay.addWidget(tabs)
+        mlay.addWidget(self.tabs)
         mlay.addWidget(self.logger)
 
         self.setCentralWidget(master)
         self.center()
+
+    @QtCore.pyqtSlot(int)
+    def _update_size(self, idx):
+        tabs = self.tabs
+        for i in range(tabs.count()):
+            if i != idx:
+                tabs.widget(i).setSizePolicy(QtWidgets.QSizePolicy.Ignored,
+                                             QtWidgets.QSizePolicy.Ignored)
+        cur_widget = tabs.widget(idx)
+        cur_widget.setSizePolicy(QtWidgets.QSizePolicy.Minimum,
+                                 QtWidgets.QSizePolicy.Minimum)
+        cur_widget.resize(cur_widget.minimumSizeHint())
+        cur_widget.adjustSize()
+        tabs.resize(tabs.minimumSizeHint())
+        tabs.adjustSize()
 
     def closeEvent(self, event):
         self.ctrl.close()
