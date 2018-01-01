@@ -17,6 +17,7 @@ from .dialogs import FuncDialog
 
 # type check imports
 from .displays import LogWidget
+from .fields import LineEditBinary
 from ...backend.core import Controller
 
 activity_gif = pkg_resources.resource_filename('chip_test_ec.gui', os.path.join('resources', 'ajax-loader.gif'))
@@ -269,7 +270,8 @@ class ScanControlFrame(FrameBase):
         self.setFrameStyle(QtWidgets.QFrame.Box | QtWidgets.QFrame.Raised)
 
         # create and add components
-        self.spin_box_list, self.check_box_list, self.val_lookup = self.create_controls(self.ctrl.fpga, specs)
+        tmp = self.create_controls(self.ctrl.fpga, specs)
+        self.spin_box_list, self.check_box_list, self.line_edit_list, self.val_lookup = tmp
 
     def create_controls(self, fpga, specs):
         char_dir = specs['char_dir']
@@ -279,6 +281,7 @@ class ScanControlFrame(FrameBase):
         # add spin boxes
         align_value = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
         spin_box_list = []
+        line_edit_list = []
         val_label_lookup = {}
         row_idx, col_idx = 0, 0
         for spin_box_col in spin_boxes:
@@ -289,6 +292,7 @@ class ScanControlFrame(FrameBase):
                 fname = spin_info.get('fname', None)
                 scale = spin_info.get('scale', 1.0)
                 unit = spin_info.get('unit', '')
+                dtype = spin_info.get('dtype', 'int')
 
                 scan_val = fpga.get_scan(chain_name, bus_name)
                 num_bits = fpga.get_scan_length(chain_name, bus_name)
@@ -301,47 +305,58 @@ class ScanControlFrame(FrameBase):
                 row_idx += 1
 
                 # create and add spin box
-                spin_box = QtWidgets.QSpinBox(parent=self)
-                spin_box.setObjectName(obj_name)
-                spin_box.setSingleStep(1)
-                self.lay.addWidget(spin_box, row_idx, col_idx)
+                if dtype == 'int':
+                    # integer control: use spin box.
+                    spin_box = QtWidgets.QSpinBox(parent=self)
+                    spin_box.setObjectName(obj_name)
+                    spin_box.setSingleStep(1)
+                    self.lay.addWidget(spin_box, row_idx, col_idx)
 
-                # set spin box value and create/add value label if necessary
-                if fname:
-                    # load characterization file
-                    mat = np.loadtxt(os.path.join(char_dir, fname))
-                    # fit with monotonic regression
-                    reg = IsotonicRegression(increasing='auto')
-                    xvec = mat[:, 0]
-                    offset = int(round(np.min(xvec)))
-                    yvec_mono = reg.fit_transform(xvec, mat[:, 1])
-                    # set max and min based on characterization file
-                    max_val = int(round(np.max(xvec)))
-                    spin_box.setMaximum(max_val)
-                    spin_box.setMinimum(offset)
-                    if scan_val < offset or scan_val > max_val:
-                        raise ValueError('Default scan values outside characterization bounds')
-                    spin_box.setValue(scan_val)
+                    # set spin box value and create/add value label if necessary
+                    if fname:
+                        # load characterization file
+                        mat = np.loadtxt(os.path.join(char_dir, fname))
+                        # fit with monotonic regression
+                        reg = IsotonicRegression(increasing='auto')
+                        xvec = mat[:, 0]
+                        offset = int(round(np.min(xvec)))
+                        yvec_mono = reg.fit_transform(xvec, mat[:, 1])
+                        # set max and min based on characterization file
+                        max_val = int(round(np.max(xvec)))
+                        spin_box.setMaximum(max_val)
+                        spin_box.setMinimum(offset)
+                        if scan_val < offset or scan_val > max_val:
+                            raise ValueError('Default scan values outside characterization bounds')
+                        spin_box.setValue(scan_val)
 
-                    val_text = '%.4g %s' % (yvec_mono[scan_val - offset] * scale, unit)
-                    val_label = QtWidgets.QLabel(val_text, parent=self)
-                    val_label.setAlignment(align_value)
-                    val_label_lookup[obj_name] = (val_label, offset, scale, unit, yvec_mono)
+                        val_text = '%.4g %s' % (yvec_mono[scan_val - offset] * scale, unit)
+                        val_label = QtWidgets.QLabel(val_text, parent=self)
+                        val_label.setAlignment(align_value)
+                        val_label_lookup[obj_name] = (val_label, offset, scale, unit, yvec_mono)
+                        # noinspection PyUnresolvedReferences
+                        spin_box.valueChanged[int].connect(self._update_label)
+
+                        # add value label
+                        self.lay.addWidget(val_label, row_idx, col_idx + 1)
+                    else:
+                        spin_box.setMaximum((1 << num_bits) - 1)
+                        spin_box.setMinimum(0)
+                        spin_box.setValue(scan_val)
+
                     # noinspection PyUnresolvedReferences
-                    spin_box.valueChanged[int].connect(self._update_label)
-
-                    # add value label
-                    self.lay.addWidget(val_label, row_idx, col_idx + 1)
+                    spin_box.valueChanged[int].connect(self._update_scan)
+                    spin_box_list.append(spin_box)
+                elif dtype == 'bin':
+                    line_edit = LineEditBinary(0, num_bits, parent=self)
+                    line_edit.setObjectName(obj_name)
+                    self.lay.addWidget(line_edit, row_idx, col_idx, 1, 2)
+                    # noinspection PyUnresolvedReferences
+                    line_edit.editingFinished.connect(self._update_scan_le)
+                    line_edit_list.append(line_edit)
                 else:
-                    spin_box.setMaximum((1 << num_bits) - 1)
-                    spin_box.setMinimum(0)
-                    spin_box.setValue(scan_val)
-
-                # noinspection PyUnresolvedReferences
-                spin_box.valueChanged[int].connect(self._update_scan)
+                    raise ValueError('Unknown display type: %s' % dtype)
 
                 row_idx += 1
-                spin_box_list.append(spin_box)
 
             row_idx = 0
             col_idx += 2
@@ -378,7 +393,7 @@ class ScanControlFrame(FrameBase):
             row_idx = 0
             col_idx += 1
 
-        return spin_box_list, check_box_list, val_label_lookup
+        return spin_box_list, check_box_list, line_edit_list, val_label_lookup
 
     @QtCore.pyqtSlot(str)
     def _update_from_scan(self, chain_name):
@@ -393,6 +408,16 @@ class ScanControlFrame(FrameBase):
                 new_value = fpga.get_scan(chain_name, bus_name)
                 if cur_value != new_value:
                     spin_box.setValue(new_value)
+        # update line edits
+        for line_edit in self.line_edit_list:
+            obj_name = line_edit.objectName()
+            cur_chain_name, bus_name = obj_name.split('.', 1)
+            cur_text = line_edit.text()
+            if cur_chain_name == chain_name:
+                new_value = fpga.get_scan(chain_name, bus_name)
+                new_text = np.binary_repr(new_value, fpga.get_scan_length(chain_name, bus_name))
+                if cur_text != new_text:
+                    line_edit.setText(new_text)
         # update check boxes
         for check_box in self.check_box_list:
             obj_name = check_box.objectName()
@@ -415,6 +440,18 @@ class ScanControlFrame(FrameBase):
         send_obj = self.sender()
         if isinstance(send_obj, QtWidgets.QCheckBox):
             val = 1 if val == QtCore.Qt.Checked else 0
+        obj_name = send_obj.objectName()
+        chain_name, bus_name = obj_name.split('.', 1)
+        fpga = self.ctrl.fpga
+        cur_val = fpga.get_scan(chain_name, bus_name)
+        if cur_val != val:
+            fpga.set_scan(chain_name, bus_name, val)
+            fpga.update_scan(chain_name)
+
+    @QtCore.pyqtSlot()
+    def _update_scan_le(self):
+        send_obj = self.sender()
+        val = int(send_obj.text(), 2)
         obj_name = send_obj.objectName()
         chain_name, bus_name = obj_name.split('.', 1)
         fpga = self.ctrl.fpga

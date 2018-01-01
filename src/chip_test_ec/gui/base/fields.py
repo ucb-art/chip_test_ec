@@ -9,6 +9,8 @@ import os
 import math
 from collections import deque
 
+import numpy as np
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 
@@ -277,3 +279,26 @@ class LineEditHist(QtWidgets.QLineEdit):
         cmd = self.text()
         self.histories.append(cmd)
         self.cur_idx = len(self.histories)
+
+
+class LineEditBinary(QtWidgets.QLineEdit):
+    """A subclass of QLineEdit that edits a fixed-length binary string.
+
+    Parameters
+    ----------
+    init_val : int
+        initial value.
+    num_bits : int
+        number of bits in the binary string.
+    parent :
+        the parent QObject.
+    """
+
+    def __init__(self, init_val: int, num_bits: int, parent=None):
+        init_val = init_val & ((1 << num_bits) - 1)
+        init_str = np.binary_repr(init_val, num_bits)
+        super(LineEditBinary, self).__init__(init_str, parent=parent)
+
+        regexp = QtCore.QRegExp('[01]{%d,%d}' % (num_bits, num_bits))
+        self.bin_validator = QtGui.QRegExpValidator(regexp, parent=self)
+        self.setValidator(self.bin_validator)
