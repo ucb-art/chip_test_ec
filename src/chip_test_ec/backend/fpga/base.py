@@ -321,7 +321,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             raise ValueError('%s is not a file.' % fname)
 
         with open(fname, 'r') as f:
-            scan_dict = yaml.load(f)
+            scan_dict = yaml.load(f)['scan_content']
 
         for chain_name, chain_values in scan_dict.items():
             changed = False
@@ -345,11 +345,9 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         if os.path.isdir(fname):
             raise ValueError('Cannot save scan to a directory: %s' % fname)
 
+        save_val = dict(scan_content=self._chain_value)
         if kwargs:
-            save_val = self._chain_value.copy()
             save_val.update(kwargs)
-        else:
-            save_val = self._chain_value
 
         with open(fname, 'w') as f:
             yaml.dump(save_val, f)
