@@ -253,9 +253,11 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         name_list = self.get_scan_names(chain_name)
         for name, val_in, val_out in zip(name_list, in_list, out_list):
             if not self.is_scan_read_only(chain_name, name) and val_in != val_out:
-                msg = 'scan bus %s.%s value = %d != %d' % (chain_name, name, val_out, val_in)
+                emsg = 'scan bus %s.%s value = %d != %d' % (chain_name, name, val_out, val_in)
+                self.log_msg(emsg, level=logging.ERROR)
+                msg = 'chain %s output: %s' % (chain_name, out_list)
                 self.log_msg(msg, level=logging.ERROR)
-                raise ValueError(msg)
+                raise ValueError(emsg)
 
     def update_scan(self, chain_name: str, check: bool=False) -> None:
         """Scan in the given chain, scan out the resulting data, then update
