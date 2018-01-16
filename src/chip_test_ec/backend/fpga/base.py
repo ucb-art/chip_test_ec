@@ -56,8 +56,10 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
     fake_scan : bool
         If True, then will not actually do the scan procedure.  This is useful for
         debugging.
+    check_scan : bool
+        True to check every scan operation.
     """
-    def __init__(self, scan_file: str, fake_scan: bool=False) -> None:
+    def __init__(self, scan_file: str, fake_scan: bool=False, check_scan: bool=False) -> None:
         LoggingBase.__init__(self)
 
         self._scan_config = None
@@ -66,6 +68,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
         self._chain_blen = {}
         self._callbacks = []
         self._fake_scan = fake_scan
+        self._check_scan = check_scan
         self._chain_names = None
 
         # parse scan chain file
@@ -273,6 +276,7 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             if True, will check if the updated data is the same as the data shifted
             in.  Raise an error is this is not the case.
         """
+        check = check or self._check_scan
         chain_info = self.get_scan_chain_info(chain_name)
         scan_values = self._chain_value[chain_name]
 
