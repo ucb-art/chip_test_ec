@@ -42,11 +42,13 @@ class EyePlotFrame(FrameBase):
                  conf_path: str='', font_size: int=11, parent: Optional[QtCore.QObject]=None):
         super(EyePlotFrame, self).__init__(ctrl, conf_path=conf_path, font_size=font_size, parent=parent)
         self.logger = logger
+        self.color_arr = None
+        self.err_arr = None
 
         with open(specs_fname, 'r') as f:
             config = yaml.load(f)
 
-        self.color_arr, self.err_arr, self.img_item, plot_widget = self.create_eye_plot(config)
+        self.img_item, plot_widget = self.create_eye_plot(config)
 
         # create panel control frame
         pc_frame, self.var_boxes, self.run, self.cancel, self.save = self.create_panel_controls(config)
@@ -63,7 +65,8 @@ class EyePlotFrame(FrameBase):
         tick_step = config['tick_step']
 
         img_item = pyqtgraph.ImageItem()
-        tvec, yvec, data_arr, err_arr = self._init_data(img_item, tstart, tstop, tstep, ystart, ystop, ystep)
+        img_item.setOpts(axisOrder='row-major')
+        tvec, yvec = self._init_data(img_item, tstart, tstop, tstep, ystart, ystop, ystep)
 
         # create plot
         plot_widget = pyqtgraph.PlotWidget()
@@ -80,7 +83,7 @@ class EyePlotFrame(FrameBase):
         plt_item.getAxis('bottom').setTicks([[], xtick_minor])
         plt_item.getAxis('left').setTicks([[], ytick_minor])
 
-        return data_arr, err_arr, img_item, plot_widget
+        return img_item, plot_widget
 
     def create_panel_controls(self, config):
         align_label = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
@@ -135,20 +138,20 @@ class EyePlotFrame(FrameBase):
         yvec = np.arange(ystart, ystop, ystep)
         num_t = len(tvec)
         num_y = len(yvec)
-        data_arr = np.empty((num_t, num_y, 3), dtype=int)
-        data_arr[:] = self.color_unfilled
-        err_arr = np.empty(data_arr.shape[:2])
-        err_arr.fill(-1)
+        mat_shape = (num_t, num_y)
+        if self.data_arr is None or self.data_arr.shape != mat_shape:
+            self.data_arr = np.empty((num_t, num_y, 3), dtype=int)
+            self.err_arr = np.empty(mat_shape)
 
-        num_t = len(tvec)
-        num_y = len(yvec)
+        self.data_arr[:] = self.color_unfilled
+        self.err_arr.fill(-1)
         t0, tstep, y0, ystep = tvec[0], tvec[1] - tvec[0], yvec[0], yvec[1] - yvec[0]
 
         # create image
-        img_item.setImage(data_arr, levels=(0, 255))
+        img_item.setImage(self.data_arr, levels=(0, 255))
         img_item.setRect(QtCore.QRectF(t0 - tstep / 2, y0 - ystep / 2, tstep * num_t, ystep * num_y))
 
-        return tvec, yvec, data_arr, err_arr
+        return tvec, yvec
 
     @QtCore.pyqtSlot()
     def _start_measurement(self):
@@ -162,10 +165,7 @@ class EyePlotFrame(FrameBase):
         ystop = ystop.value()
         ystep = ystep.value()
 
-        tvec, yvec, color_arr, err_arr = self._init_data(self.img_item, tstart, tstop, tstep, ystart, ystop, ystep)
-        self.color_arr = color_arr
-        self.err_arr = err_arr
-
+        tvec, yvec = self._init_data(self.img_item, tstart, tstop, tstep, ystart, ystop, ystep)
         pass
 
         self.run.setEnabled(False)
@@ -189,4 +189,4 @@ class EyePlotFrame(FrameBase):
             if not fname.endswith('.npy'):
                 fname += '.npy'
             self.logger.println('Saving to file: %s' % fname)
-            pass
+            np.save(fname, self.err_arr)
