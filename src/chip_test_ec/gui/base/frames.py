@@ -2,7 +2,7 @@
 
 """This module defines varous GUI frames."""
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 import os
 import pkg_resources
@@ -30,13 +30,18 @@ class FrameBase(QtWidgets.QFrame):
     ----------
     ctrl : Controller
         the controller object.
+    conf_path : str
+        Default path to save/load configuration files.
+        If empty, defaults to current working directory
     font_size : int
-        the frame font size.
+        the font size for this frame.
     parent : Optional[QtCore.QObject]
-        the parent object.
+        the parent object
     """
-    def __init__(self, ctrl: Controller, font_size=11, parent=None):
+    def __init__(self, ctrl: Controller, conf_path: str='',
+                 font_size: int=11, parent: Optional[QtCore.QObject]=None):
         super(FrameBase, self).__init__(parent=parent)
+        self.conf_path = os.getcwd() if not conf_path else conf_path
 
         # set to delete on close
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
@@ -152,16 +157,20 @@ class ScanDisplayFrame(FrameBase):
         the controller object.
     specs : Dict[str, Any]
         the specification dictionary.
+    conf_path : str
+        Default path to save/load configuration files.
+        If empty, defaults to current working directory
     font_size : int
-        the frame font size.
+        the font size for this frame.
     parent : Optional[QtCore.QObject]
-        the parent object.
+        the parent object
     """
 
     scanChainChanged = QtCore.pyqtSignal(str)
 
-    def __init__(self, ctrl: Controller, specs: Dict[str, Any], font_size=11, parent=None):
-        super(ScanDisplayFrame, self).__init__(ctrl, font_size=font_size, parent=parent)
+    def __init__(self, ctrl: Controller, specs: Dict[str, Any], conf_path: str='',
+                 font_size: int=11, parent: Optional[QtCore.QObject]=None):
+        super(ScanDisplayFrame, self).__init__(ctrl, conf_path=conf_path, font_size=font_size, parent=parent)
 
         # add scan callback
         # noinspection PyUnresolvedReferences
@@ -291,16 +300,20 @@ class ScanControlFrame(FrameBase):
         the controller object.
     specs : Dict[str, Any]
         the specification dictionary.
+    conf_path : str
+        Default path to save/load configuration files.
+        If empty, defaults to current working directory
     font_size : int
-        the frame font size.
+        the font size for this frame.
     parent : Optional[QtCore.QObject]
-        the parent object.
+        the parent object
     """
 
     scanChainChanged = QtCore.pyqtSignal(str)
 
-    def __init__(self, ctrl: Controller, specs: Dict[str, Any], font_size=11, parent=None):
-        super(ScanControlFrame, self).__init__(ctrl, font_size=font_size, parent=parent)
+    def __init__(self, ctrl: Controller, specs: Dict[str, Any], conf_path: str='',
+                 font_size: int=11, parent: Optional[QtCore.QObject]=None):
+        super(ScanControlFrame, self).__init__(ctrl, conf_path=conf_path, font_size=font_size, parent=parent)
 
         # add scan callback
         # noinspection PyUnresolvedReferences
@@ -521,12 +534,18 @@ class DispCtrlFrame(FrameBase):
         the specification file name.
     logger : LogWidget
         the LogWidget used to display messages.
+    conf_path : str
+        Default path to save/load configuration files.
+        If empty, defaults to current working directory
     font_size : int
-        the font size for this frame.]
+        the font size for this frame.
+    parent : Optional[QtCore.QObject]
+        the parent object
     """
 
-    def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget, font_size: int=11, parent=None):
-        super(DispCtrlFrame, self).__init__(ctrl, font_size=font_size, parent=parent)
+    def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget,
+                 conf_path: str='', font_size: int=11, parent: Optional[QtCore.QObject]=None):
+        super(DispCtrlFrame, self).__init__(ctrl, conf_path=conf_path, font_size=font_size, parent=parent)
         self.logger = logger
 
         with open(specs_fname, 'r') as f:
@@ -665,10 +684,12 @@ class DispCtrlFrame(FrameBase):
 
     @QtCore.pyqtSlot()
     def _save_as(self):
-        cur_dir = os.getcwd()
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', cur_dir, 'YAML files (*.yaml *.yml)',
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', self.conf_path,
+                                                         'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
+            if not fname.endswith('.yaml') or not fname.endswith('.yml'):
+                fname += '.yaml'
             self.logger.println('Saving to file: %s' % fname)
             attrs = dict(step_size=self.step_box.value(),
                          refresh_rate=self.update_box.value(),
@@ -678,8 +699,8 @@ class DispCtrlFrame(FrameBase):
 
     @QtCore.pyqtSlot()
     def _load_from(self):
-        cur_dir = os.getcwd()
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', cur_dir, 'YAML files (*.yaml *.yml)',
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', self.conf_path,
+                                                         'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             self.logger.println('Loading from file: %s' % fname)
@@ -704,12 +725,18 @@ class CtrlFrame(FrameBase):
         the specification file name.
     logger : LogWidget
         the LogWidget used to display messages.
+    conf_path : str
+        Default path to save/load configuration files.
+        If empty, defaults to current working directory
     font_size : int
-        the font size for this frame.]
+        the font size for this frame.
+    parent : Optional[QtCore.QObject]
+        the parent object
     """
 
-    def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget, font_size: int=11, parent=None):
-        super(CtrlFrame, self).__init__(ctrl, font_size=font_size, parent=parent)
+    def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget,
+                 conf_path: str='', font_size: int=11, parent: Optional[QtCore.QObject]=None):
+        super(CtrlFrame, self).__init__(ctrl, conf_path=conf_path, font_size=font_size, parent=parent)
         self.logger = logger
 
         with open(specs_fname, 'r') as f:
@@ -785,10 +812,12 @@ class CtrlFrame(FrameBase):
 
     @QtCore.pyqtSlot()
     def _save_as(self):
-        cur_dir = os.getcwd()
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', cur_dir, 'YAML files (*.yaml *.yml)',
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', self.conf_path,
+                                                         'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
+            if not fname.endswith('.yaml') or not fname.endswith('.yml'):
+                fname += '.yaml'
             self.logger.println('Saving to file: %s' % fname)
             attrs = dict(step_size=self.step_box.value(),
                          supply_idx=self.sup_field.currentIndex(),
@@ -797,8 +826,8 @@ class CtrlFrame(FrameBase):
 
     @QtCore.pyqtSlot()
     def _load_from(self):
-        cur_dir = os.getcwd()
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', cur_dir, 'YAML files (*.yaml *.yml)',
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', self.conf_path,
+                                                         'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             self.logger.println('Loading from file: %s' % fname)

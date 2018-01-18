@@ -2,6 +2,8 @@
 
 """This module defines GUI components that let users interact with GPIB devices."""
 
+from typing import Optional
+
 from PyQt5 import QtWidgets, QtCore, QtGui
 
 from .base.fields import LineEditHist
@@ -23,9 +25,13 @@ class GPIBFrame(QtWidgets.QFrame):
         The controller object.
     logger : LogWidget
         the LogWidget used to display messages.
-
+    font_size : int
+        the font size for this frame.
+    parent : Optional[QtCore.QObject]
+        the parent object
     """
-    def __init__(self, ctrl: Controller, logger: LogWidget, font_size: int=11, parent=None):
+    def __init__(self, ctrl: Controller, logger: LogWidget,
+                 font_size: int=11, parent: Optional[QtCore.QObject]=None):
         super(GPIBFrame, self).__init__(parent=parent)
 
         # set font

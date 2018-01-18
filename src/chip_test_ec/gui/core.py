@@ -46,7 +46,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.logger = LogWidget(parent=self)
 
-        frames = [ScanFrame(ctrl, self.logger, font_size=font_size, parent=self),
+        frames = [ScanFrame(ctrl, self.logger, conf_path=conf_path, font_size=font_size, parent=self),
                   GPIBFrame(ctrl, self.logger, font_size=font_size, parent=self),
                   ]
         names = ['Scan',
@@ -60,7 +60,8 @@ class MainWindow(QtWidgets.QMainWindow):
             cls_name = gui_config['class']
             specs_fname = gui_config['specs_fname']
             gui_cls = import_class(mod_name, cls_name)
-            gui_frame = gui_cls(ctrl, specs_fname, self.logger, font_size=font_size, parent=self)
+            gui_frame = gui_cls(ctrl, specs_fname, self.logger, conf_path=conf_path,
+                                font_size=font_size, parent=self)
             frames.append(gui_frame)
             names.append(gui_name)
 

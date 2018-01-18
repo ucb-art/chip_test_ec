@@ -3,6 +3,8 @@
 """This module defines a frame that provides scan chain editing functionality.
 """
 
+from typing import Optional
+
 import os
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -77,21 +79,29 @@ class ScanFrame(QtWidgets.QFrame):
         the controller object.
     logger : LogWidget
         the LogWidget use to display messages.
+    conf_path : str
+        Default path to save/load configuration files.
+        If empty, defaults to current working directory
     font_size : int
         the font size for this frame.
     max_step : int
         maximum scan bus spinbox step size.
+    parent : Optional[QtCore.QObject]
+        the parent object
     """
 
     scanChainChanged = QtCore.pyqtSignal(str)
 
-    def __init__(self, ctrl: Controller, logger: LogWidget, font_size: int=11, max_step: int=8192, parent=None):
+    def __init__(self, ctrl: Controller, logger: LogWidget, conf_path: str='',
+                 font_size: int=11, max_step: int=8192, parent: Optional[QtCore.QObject]=None):
         super(ScanFrame, self).__init__(parent=parent)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.ctrl = ctrl
         self.chain_names = ctrl.fpga.get_scan_chain_names()
         self.delegate = ScanDelegate(parent=self)
         self.logger = logger
+        self.conf_path = os.getcwd() if not conf_path else conf_path
+
         # noinspection PyUnresolvedReferences
         ctrl.fpga.add_callback(self.scanChainChanged.emit)
         # noinspection PyUnresolvedReferences
@@ -197,8 +207,8 @@ class ScanFrame(QtWidgets.QFrame):
 
     @QtCore.pyqtSlot()
     def set_from_file(self):
-        cur_dir = os.getcwd()
-        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', cur_dir, 'YAML files (*.yaml *.yml)',
+        fname, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Load File', self.conf_path,
+                                                         'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             self.logger.println('Loading from file: %s' % fname)
@@ -206,9 +216,12 @@ class ScanFrame(QtWidgets.QFrame):
 
     @QtCore.pyqtSlot()
     def save_to_file(self):
-        cur_dir = os.getcwd()
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', cur_dir, 'YAML files (*.yaml *.yml)',
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Select File', self.conf_path,
+                                                         'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
+            # check file ends with .yaml/.yml suffix
+            if not fname.endswith('.yaml') or not fname.endswith('.yml'):
+                fname += '.yaml'
             self.logger.println('Saving to file: %s' % fname)
             self.ctrl.fpga.save_scan_to_file(fname)
