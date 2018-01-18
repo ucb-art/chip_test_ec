@@ -244,6 +244,7 @@ class GPIBTCP(GPIBBase):
         GPIBBase.__init__(self, bid, pad, timeout_ms=timeout_ms)
 
         self._s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._s.settimeout(timeout_ms / 1000)
         self._buf_size = buffer_size
         self.log_msg('Connecting to IP address %s:%d' % (ip_addr, port))
         self._s.connect((ip_addr, port))
