@@ -12,6 +12,7 @@ import pyqtgraph
 from ..base.frames import FrameBase
 from ..base.displays import LogWidget
 from ...backend.core import Controller
+from ...util.core import import_class
 
 
 class EyePlotFrame(FrameBase):
@@ -44,14 +45,15 @@ class EyePlotFrame(FrameBase):
         self.logger = logger
         self.color_arr = None
         self.err_arr = None
+        self.worker = None
 
         with open(specs_fname, 'r') as f:
-            config = yaml.load(f)
+            self.config = yaml.load(f)
 
-        self.img_item, plot_widget = self.create_eye_plot(config)
+        self.img_item, plot_widget = self.create_eye_plot(self.config)
 
         # create panel control frame
-        pc_frame, self.var_boxes, self.run, self.cancel, self.save = self.create_panel_controls(config)
+        pc_frame, self.var_boxes, self.run, self.cancel, self.save = self.create_panel_controls(self.config)
 
         # populate frame
         self.lay.setSpacing(0)
@@ -155,22 +157,30 @@ class EyePlotFrame(FrameBase):
 
     @QtCore.pyqtSlot()
     def _start_measurement(self):
-        tstart, tstop, tstep = self.var_boxes['time']
-        ystart, ystop, ystep = self.var_boxes['y']
+        if self.worker is None:
 
-        tstart = tstart.value()
-        tstop = tstop.value()
-        tstep = tstep.value()
-        ystart = ystart.value()
-        ystop = ystop.value()
-        ystep = ystep.value()
+            tstart, tstop, tstep = self.var_boxes['time']
+            ystart, ystop, ystep = self.var_boxes['y']
 
-        tvec, yvec = self._init_data(self.img_item, tstart, tstop, tstep, ystart, ystop, ystep)
-        pass
+            tstart = tstart.value()
+            tstop = tstop.value()
+            tstep = tstep.value()
+            ystart = ystart.value()
+            ystop = ystop.value()
+            ystep = ystep.value()
 
-        self.run.setEnabled(False)
-        self.cancel.setEnabled(True)
-        self.save.setEnabled(False)
+            tvec, yvec = self._init_data(self.img_item, tstart, tstop, tstep, ystart, ystop, ystep)
+
+            """
+            mod_name = self.config['module']
+            cls_name = gui_config['class']
+            specs_fname = gui_config['specs_fname']
+            gui_cls = import_class(mod_name, cls_name)
+            gui_frame = gui_cls(ctrl, specs_fname, self.logger, conf_path=conf_p
+            """
+            self.run.setEnabled(False)
+            self.cancel.setEnabled(True)
+            self.save.setEnabled(False)
 
     @QtCore.pyqtSlot()
     def _stop_measurement(self):
