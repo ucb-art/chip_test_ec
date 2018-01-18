@@ -20,6 +20,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     Parameters
     ----------
+    title : str
+        the window title.
     ctrl : Controller
         the Controller instance.
     gui_specs : Dict[str, Any]
@@ -29,7 +31,8 @@ class MainWindow(QtWidgets.QMainWindow):
     font_size : int
         the font size.
     """
-    def __init__(self, ctrl: Controller, gui_specs: Dict[str, Any], conf_path: str, font_size: int=11) -> None:
+    def __init__(self, title: str, ctrl: Controller, gui_specs: Dict[str, Any], conf_path: str,
+                 font_size: int=11) -> None:
         super(MainWindow, self).__init__()
 
         self.ctrl = ctrl
@@ -39,7 +42,7 @@ class MainWindow(QtWidgets.QMainWindow):
         font.setPointSize(font_size)
         self.setFont(font)
 
-        self.setWindowTitle('Chip Testing Main Window')
+        self.setWindowTitle(title)
         # try to get Qt to delete all C++ objects before Python garbage collection kicks in
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.tabs = QtWidgets.QTabWidget(parent=self)
