@@ -175,7 +175,7 @@ class ScanDisplayFrame(FrameBase):
         self.setFrameStyle(QtWidgets.QFrame.Box | QtWidgets.QFrame.Raised)
 
         # create display frame
-        self.disp_list, self.chain_names = self.create_displays(self.ctrl.fpga, specs, font_size)
+        self.disp_list, self.comp_list, self.chain_names = self.create_displays(self.ctrl.fpga, specs, font_size)
 
     def create_displays(self, fpga, specs, font_size):
         disp_font = QtGui.QFont('Monospace')
@@ -184,6 +184,7 @@ class ScanDisplayFrame(FrameBase):
 
         align_label = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
         disp_list = []
+        comp_list = []
         row_idx, col_idx = 0, 0
         update_chains = set()
         for disp_col in specs:
@@ -193,6 +194,7 @@ class ScanDisplayFrame(FrameBase):
                 disp_type = disp_info['dtype']
                 start = disp_info.get('start', 0)
                 step = disp_info.get('step', 1)
+                compare = disp_info.get('compare', False)
 
                 num_bits = fpga.get_scan_length(chain_name, bus_name)
                 scan_val = fpga.get_scan(chain_name, bus_name)
@@ -219,6 +221,18 @@ class ScanDisplayFrame(FrameBase):
                 disp_field = QtWidgets.QLabel(disp_str, parent=self)
                 disp_field.setFont(disp_font)
 
+                if compare:
+                    comp_button = QtWidgets.QPushButton('compare %s' % label_name, parent=self)
+                    comp_button.setObjectName(str(len(comp_list)))
+                    # noinspection PyUnresolvedReferences
+                    comp_button.clicked.connect(self._update_compare)
+                    comp_field = QtWidgets.QLineEdit(disp_str, parent=self)
+                    comp_field.setFont(disp_font)
+                    self.lay.addWidget(comp_button, row_idx, col_idx)
+                    self.lay.addWidget(comp_field, row_idx, col_idx + 1)
+                    row_idx += 1
+                    comp_list.append((disp_field, comp_field))
+
                 self.lay.addWidget(label, row_idx, col_idx)
                 self.lay.addWidget(disp_field, row_idx, col_idx + 1)
                 disp_list.append((disp_field, chain_name, bus_name, disp_type, num_bits, (start, step)))
@@ -227,7 +241,30 @@ class ScanDisplayFrame(FrameBase):
             row_idx = 0
             col_idx += 2
 
-        return disp_list, update_chains
+        return disp_list, comp_list, update_chains
+
+    @QtCore.pyqtSlot()
+    def _update_compare(self):
+        idx = int(self.sender().objectName())
+        disp_field, comp_field = self.comp_list[idx]
+        shift_text = comp_field.text()
+        disp_text = disp_field.text()
+
+        nbits = len(disp_text)
+        if nbits == len(shift_text):
+            num_err = nbits
+            check_str = shift_text * 2
+            shift = 0
+            for idx in range(nbits):
+                num_err_cur = 0
+                for pos in range(nbits):
+                    if disp_text[pos] != check_str[idx + pos]:
+                        num_err_cur += 1
+                if num_err_cur < num_err:
+                    num_err = num_err_cur
+                    shift = idx
+
+            comp_field.setText(check_str[shift:shift + nbits])
 
     @QtCore.pyqtSlot(str)
     def _update_from_scan(self, chain_name):
