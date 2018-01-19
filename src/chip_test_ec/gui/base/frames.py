@@ -84,6 +84,7 @@ class FrameBase(QtWidgets.QFrame):
             for item_info in row_info:
                 name = item_info['name']
                 dtype = item_info['dtype']
+                ncol = item_info.get('ncol', 1)
                 obj_name = dtype + '_' + name
 
                 name_label = QtWidgets.QLabel(name, parent=self)
@@ -112,13 +113,31 @@ class FrameBase(QtWidgets.QFrame):
                     widget = QtWidgets.QLineEdit(str(vdef), parent=self)
                     validator = QtGui.QDoubleValidator(vmin, vmax, ndec, parent=widget)
                     widget.setValidator(validator)
+                elif dtype == 'bool':
+                    vdef = item_info.get('vdef', False)
+
+                    widget = QtWidgets.QCheckBox(parent=self)
+                    state = QtCore.Qt.Checked if vdef else QtCore.Qt.Unchecked
+                    widget.setCheckState(state)
+                elif dtype == 'bin':
+                    vdef = item_info.get('vdef', 0)
+                    nbits = item_info['nbits']
+
+                    widget = LineEditBinary(vdef, nbits, parent=self)
+                elif dtype == 'choice':
+                    values = item_info['values']
+                    vdef = item_info.get('vdef', 0)
+
+                    widget = QtWidgets.QComboBox(parent=self)
+                    widget.addItems(values)
+                    widget.setCurrentIndex(vdef)
                 else:
                     raise ValueError('Unknown control data type: ' + dtype)
 
                 widget.setObjectName(obj_name)
-                lay.addWidget(widget, row_idx, col_idx + 1, alignment=align_value)
+                lay.addWidget(widget, row_idx, col_idx + 1, 1, ncol, alignment=align_value)
                 widget_list.append(widget)
-                col_idx += 2
+                col_idx += ncol + 1
 
             row_idx += 1
             col_idx = col_offset
@@ -133,10 +152,14 @@ class FrameBase(QtWidgets.QFrame):
             dtype, name = obj_name.split('_', 1)
             if dtype == 'int':
                 table[name] = widget.value()
-            elif dtype == 'str':
+            elif dtype == 'str' or dtype == 'bin':
                 table[name] = widget.text()
             elif dtype == 'float':
                 table[name] = float(widget.text())
+            elif dtype == 'bool':
+                table[name] = (widget.checkState() == QtCore.Qt.Checked)
+            elif dtype == 'choice':
+                table[name] = widget.currentText()
             else:
                 raise ValueError('Unknown control widget: %s' % widget)
 

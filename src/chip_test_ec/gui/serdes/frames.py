@@ -63,7 +63,7 @@ class EyePlotFrame(FrameBase):
     def create_eye_plot(self, config):
         tstart, tstop, tstep = config['t_sweep']
         ystart, ystop, ystep = config['y_sweep']
-        yname = config['y_name']
+        y_name = config['y_name_list'][0]
         num_ticks = config['num_ticks']
 
         # create plot
@@ -72,11 +72,10 @@ class EyePlotFrame(FrameBase):
         img_item = pyqtgraph.ImageItem()
         plt_item.addItem(img_item)
         plt_item.showGrid(x=True, y=True, alpha=1)
-        plt_item.setLabel('left', yname)
         plt_item.setLabel('bottom', 'time')
         plt_item.setMouseEnabled(x=False, y=False)
 
-        self._init_data(plt_item, img_item, tstart, tstop, tstep, ystart, ystop, ystep, num_ticks)
+        self._init_data(plt_item, img_item, y_name, tstart, tstop, tstep, ystart, ystop, ystep, num_ticks)
 
         return img_item, plot_widget
 
@@ -86,8 +85,10 @@ class EyePlotFrame(FrameBase):
         y_min, y_max = config['y_range']
         t_start, t_stop, t_step = config['t_sweep']
         y_start, y_stop, y_step = config['y_sweep']
+        y_name_list = config['y_name_list']
         max_err = config['max_err']
         ber = config['ber']
+        data_length = config['data_length']
 
         ctrl_info = [[dict(name='t_start', dtype='int', vmin=t_min, vmax=t_max, vdef=t_start),
                       dict(name='t_stop', dtype='int', vmin=t_min, vmax=t_max, vdef=t_stop),
@@ -97,9 +98,13 @@ class EyePlotFrame(FrameBase):
                       dict(name='y_stop', dtype='int', vmin=y_min, vmax=y_max, vdef=y_stop),
                       dict(name='y_step', dtype='int', vmin=y_min, vmax=y_max, vdef=y_step),
                       ],
-                     [dict(name='y_guess', dtype='int', vmin=y_min, vmax=y_max),
+                     [dict(name='y_name', dtype='choice', values=y_name_list),
+                      dict(name='y_guess', dtype='int', vmin=y_min, vmax=y_max),
                       dict(name='max_err', dtype='int', vmin=0, vmax=(1 << 31) - 1, vdef=max_err),
                       dict(name='ber', dtype='float', vmin=0, vmax=1, decimals=4, vdef=ber),
+                      ],
+                     [dict(name='is_pattern', dtype='bool', vdef=False),
+                      dict(name='pat_data', dtype='bin', nbits=data_length, ncol=3),
                       ],
                      ]
 
@@ -126,7 +131,7 @@ class EyePlotFrame(FrameBase):
         lay.addWidget(save_button, row_idx, 4, 1, 2)
         return frame, widget_list, run_button, cancel_button, save_button
 
-    def _init_data(self, plt_item, img_item, tstart, tstop, tstep, ystart, ystop, ystep, num_ticks):
+    def _init_data(self, plt_item, img_item, y_name, tstart, tstop, tstep, ystart, ystop, ystep, num_ticks):
         tvec = np.arange(tstart, tstop, tstep)
         yvec = np.arange(ystart, ystop, ystep)
         num_t = len(tvec)
@@ -154,6 +159,7 @@ class EyePlotFrame(FrameBase):
         ytick_minor = [(val, str(val)) for val in yvec[0::y_tick_step]]
         plt_item.getAxis('bottom').setTicks([[], xtick_minor])
         plt_item.getAxis('left').setTicks([[], ytick_minor])
+        plt_item.setLabel('left', y_name)
 
     @QtCore.pyqtSlot()
     def _start_measurement(self):
@@ -165,16 +171,18 @@ class EyePlotFrame(FrameBase):
 
             input_vals = self.get_input_values(self.widgets)
             self.max_err = input_vals['max_err']
+            y_name = input_vals['y_name']
+            t_start, t_stop, t_step = input_vals['t_start'], input_vals['t_stop'], input_vals['t_step']
+            y_start, y_stop, y_step = input_vals['y_start'], input_vals['y_stop'], input_vals['y_step']
+
             eye_config = {
                 'module': mod_name,
                 'class': cls_name,
                 'params': input_vals,
             }
-            t_start, t_stop, t_step = input_vals['t_start'], input_vals['t_stop'], input_vals['t_step']
-            y_start, y_stop, y_step = input_vals['y_start'], input_vals['y_stop'], input_vals['y_step']
 
             plt_item = self.plot_widget.getPlotItem()
-            self._init_data(plt_item, self.img_item, t_start, t_stop, t_step,
+            self._init_data(plt_item, self.img_item, y_name, t_start, t_stop, t_step,
                             y_start, y_stop, y_step, num_ticks)
 
             self.worker = WorkerThread(self.ctrl, eye_config)

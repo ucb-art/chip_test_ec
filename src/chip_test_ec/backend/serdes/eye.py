@@ -24,7 +24,10 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
 
         self.ber = config['ber']
         self.max_err = config['max_err']
-        self.y_guess = config.get('y_guess', None)
+        self.y_name = config['y_name']
+        self.y_guess = config['y_guess']
+        self.is_pattern = config['is_pattern']
+        self.pat_data = config['pat_data']
         self.tvec = list(range(config['t_start'], config['t_stop'], config['t_step']))
         self.yvec = list(range(config['y_start'], config['y_stop'], config['y_step']))
 
