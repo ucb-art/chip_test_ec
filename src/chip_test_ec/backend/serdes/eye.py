@@ -80,6 +80,9 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         else:
             cnt = 0
             t_start = time.time()
+            if self.thread.stop:
+                raise StopException()
+            cnt += self.read_error_count()
             while time.time() - t_start < self.time_meas and cnt <= self.max_err:
                 if self.thread.stop:
                     raise StopException()
@@ -118,26 +121,13 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
                 else:
                     # the guessed offset is not in the eye.
                     # assume we are below the eye, linear search bottom edge
-                    bot_edge_idx = self._lin_search_eye_edge(t_idx, guess_idx + 1, num_y)
-                    if bot_edge_idx < 0:
-                        # we did not find bottom edge.  Try finding top edge
-                        top_edge_idx = self._lin_search_eye_edge(t_idx, guess_idx - 1, -1)
-                        if top_edge_idx < 0:
-                            # we did not find top edge either.  This means we swept all possibilities,
-                            # so just continue.
-                            continue
-                        else:
-                            # we found top edge
-                            # mark all region above eye as max errors.
-                            for idx in range(top_edge_idx + 2, num_y):
-                                self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
-                            # use binary search to find bottom eye edge
-                            bot_edge_idx = self._bin_search_eye_edge(t_idx, 0, top_edge_idx, True)
-                            # mark all region below eye as max errors.
-                            for idx in range(0, bot_edge_idx - 1):
-                                self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
-                    else:
+                    edge_idx, is_bot_edge = self._flood_search_eye_edge(t_idx, 0, num_y, guess_idx, guess_idx)
+                    if edge_idx < 0:
+                        # we did not find any edge, and we swept all possibilities.  So just continue
+                        continue
+                    elif is_bot_edge:
                         # we found bottom edge
+                        bot_edge_idx = edge_idx
                         # mark all region below eye as max errors.
                         for idx in range(0, bot_edge_idx - 1):
                             self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
@@ -145,6 +135,18 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
                         top_edge_idx = self._bin_search_eye_edge(t_idx, bot_edge_idx + 1, num_y, False)
                         # mark all region above eye as max errors.
                         for idx in range(top_edge_idx + 2, num_y):
+                            self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
+                    else:
+                        # we found top edge
+                        top_edge_idx = edge_idx
+                        # we found top edge
+                        # mark all region above eye as max errors.
+                        for idx in range(top_edge_idx + 2, num_y):
+                            self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
+                        # use binary search to find bottom eye edge
+                        bot_edge_idx = self._bin_search_eye_edge(t_idx, 0, top_edge_idx, True)
+                        # mark all region below eye as max errors.
+                        for idx in range(0, bot_edge_idx - 1):
                             self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
 
                 # mark all region in the eye as no errors.
@@ -184,9 +186,14 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
 
         return edge_idx
 
-    def _lin_search_eye_edge(self, t_idx, start_idx, stop_idx):
-        step = 1 if stop_idx >= start_idx else -1
-        for cur_idx in range(start_idx, stop_idx, step):
+    def _flood_search_eye_edge(self, t_idx, start_idx, stop_idx, bot_idx, top_idx):
+        cur_dir = -1
+        while bot_idx > start_idx or top_idx < stop_idx - 1:
+            if cur_dir < 0 and bot_idx > start_idx or top_idx == stop_idx - 1:
+                cur_idx = bot_idx - 1
+            else:
+                cur_idx = top_idx + 1
+
             if self.thread.stop:
                 raise StopException()
 
@@ -197,8 +204,14 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
             self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, err_cnt=err_cnt))
 
             if err_cnt == 0:
-                return cur_idx
-        return -1
+                # found edge
+                return cur_idx, cur_idx < bot_idx
+
+            bot_idx = min(bot_idx, cur_idx)
+            top_idx = max(top_idx, cur_idx)
+            cur_dir = -cur_dir
+
+        return -1, False
 
 
 class EyePlotFake(EyePlotBase):

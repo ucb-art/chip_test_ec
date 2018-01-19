@@ -35,8 +35,8 @@ class EyePlotFrame(FrameBase):
         the parent object
     """
 
-    color_unfilled = (240, 255, 240)
-    color_cursor = (175, 238, 238)
+    color_unfilled = (143, 188, 143)
+    color_cursor = (0, 206, 209)
 
     def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget,
                  conf_path: str = '', font_size: int = 11, parent: Optional[QtCore.QObject] = None):
@@ -72,6 +72,8 @@ class EyePlotFrame(FrameBase):
         img_item = pyqtgraph.ImageItem()
         plt_item.addItem(img_item)
         plt_item.showGrid(x=True, y=True, alpha=1)
+        for key in plt_item.axes:
+            plt_item.getAxis(key).setZValue(1)
         plt_item.setLabel('bottom', 'time')
         plt_item.setMouseEnabled(x=False, y=False)
 
