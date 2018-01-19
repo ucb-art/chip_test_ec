@@ -74,6 +74,74 @@ class FrameBase(QtWidgets.QFrame):
 
         return frame, lay
 
+    def create_input_controls(self, row_list, lay, row_offset=0, col_offset=0):
+        align_label = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
+        align_value = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
+
+        row_idx, col_idx = row_offset, col_offset
+        widget_list = []
+        for row_info in row_list:
+            for item_info in row_info:
+                name = item_info['name']
+                dtype = item_info['dtype']
+                obj_name = dtype + '_' + name
+
+                name_label = QtWidgets.QLabel(name, parent=self)
+                lay.addWidget(name_label, row_idx, col_idx, alignment=align_label)
+
+                if dtype == 'int':
+                    vmin = item_info['vmin']
+                    vmax = item_info['vmax']
+                    vdef = item_info.get('vdef', (vmin + vmax) // 2)
+                    step = item_info.get('step', 1)
+
+                    widget = QtWidgets.QSpinBox(parent=self)
+                    widget.setSingleStep(step)
+                    widget.setMaximum(vmax)
+                    widget.setMinimum(vmin)
+                    widget.setValue(vdef)
+                elif dtype == 'str':
+                    vdef = item_info.get('vdef', '')
+                    widget = QtWidgets.QLineEdit(vdef, parent=self)
+                elif dtype == 'float':
+                    vmin = item_info['vmin']
+                    vmax = item_info['vmax']
+                    vdef = item_info.get('vdef', (vmin + vmax) // 2)
+                    ndec = item_info.get('decimals', 4)
+
+                    widget = QtWidgets.QLineEdit(str(vdef), parent=self)
+                    validator = QtGui.QDoubleValidator(vmin, vmax, ndec, parent=widget)
+                    widget.setValidator(validator)
+                else:
+                    raise ValueError('Unknown control data type: ' + dtype)
+
+                widget.setObjectName(obj_name)
+                lay.addWidget(widget, row_idx, col_idx + 1, alignment=align_value)
+                widget_list.append(widget)
+                col_idx += 2
+
+            row_idx += 1
+            col_idx = col_offset
+
+        return widget_list
+
+    @classmethod
+    def get_input_values(cls, widget_list):
+        table = {}
+        for widget in widget_list:
+            obj_name = widget.objectName()
+            dtype, name = obj_name.split('_', 1)
+            if dtype == 'int':
+                table[name] = widget.value()
+            elif dtype == 'str':
+                table[name] = widget.text()
+            elif dtype == 'float':
+                table[name] = float(widget.text())
+            else:
+                raise ValueError('Unknown control widget: %s' % widget)
+
+        return table
+
 
 class FuncFrame(QtWidgets.QFrame):
     """A frame of various buttons that run various user defined functions.

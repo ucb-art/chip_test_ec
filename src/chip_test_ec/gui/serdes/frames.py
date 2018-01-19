@@ -11,8 +11,8 @@ import pyqtgraph
 # type check imports
 from ..base.frames import FrameBase
 from ..base.displays import LogWidget
+from ..base.threads import WorkerThread
 from ...backend.core import Controller
-from ...util.core import import_class
 
 
 class EyePlotFrame(FrameBase):
@@ -36,16 +36,16 @@ class EyePlotFrame(FrameBase):
     """
 
     color_unfilled = (240, 255, 240)
-    color_error = (0, 0, 0)
     color_cursor = (175, 238, 238)
 
     def __init__(self, ctrl: Controller, specs_fname: str, logger: LogWidget,
-                 conf_path: str='', font_size: int=11, parent: Optional[QtCore.QObject]=None):
+                 conf_path: str = '', font_size: int = 11, parent: Optional[QtCore.QObject] = None):
         super(EyePlotFrame, self).__init__(ctrl, conf_path=conf_path, font_size=font_size, parent=parent)
         self.logger = logger
         self.color_arr = None
         self.err_arr = None
         self.worker = None
+        self.max_err = None
 
         with open(specs_fname, 'r') as f:
             self.config = yaml.load(f)
@@ -53,7 +53,7 @@ class EyePlotFrame(FrameBase):
         self.img_item, plot_widget = self.create_eye_plot(self.config)
 
         # create panel control frame
-        pc_frame, self.var_boxes, self.run, self.cancel, self.save = self.create_panel_controls(self.config)
+        pc_frame, self.widgets, self.run, self.cancel, self.save = self.create_panel_controls(self.config)
 
         # populate frame
         self.lay.setSpacing(0)
@@ -88,34 +88,32 @@ class EyePlotFrame(FrameBase):
         return img_item, plot_widget
 
     def create_panel_controls(self, config):
-        align_label = QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter
-        align_box = QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter
-
         # add sweep range spin boxes
+        t_min, t_max = config['t_range']
+        y_min, y_max = config['y_range']
+        t_start, t_stop, t_step = config['t_sweep']
+        y_start, y_stop, y_step = config['y_sweep']
+        max_err = config['max_err']
+        ber = config['ber']
+
+        ctrl_info = [[dict(name='t_start', dtype='int', vmin=t_min, vmax=t_max, vdef=t_start),
+                      dict(name='t_stop', dtype='int', vmin=t_min, vmax=t_max, vdef=t_stop),
+                      dict(name='t_step', dtype='int', vmin=t_min, vmax=t_max, vdef=t_step),
+                      ],
+                     [dict(name='y_start', dtype='int', vmin=y_min, vmax=y_max, vdef=y_start),
+                      dict(name='y_stop', dtype='int', vmin=y_min, vmax=y_max, vdef=y_stop),
+                      dict(name='y_step', dtype='int', vmin=y_min, vmax=y_max, vdef=y_step),
+                      ],
+                     [dict(name='y_guess', dtype='int', vmin=y_min, vmax=y_max),
+                      dict(name='max_err', dtype='int', vmin=0, vmax=(1 << 31) - 1, vdef=max_err),
+                      dict(name='ber', dtype='float', vmin=0, vmax=1, decimals=4, vdef=ber),
+                      ],
+                     ]
+
+        # create input controls
         frame, lay = self.create_sub_frame()
-        row_idx, col_idx = 0, 0
-        var_boxes = {}
-        for var_name in ('time', 'y'):
-            vmin, vmax = config[var_name + '_range']
-            vstart, vstop, vstep = config[var_name + '_sweep']
-            box_list = []
-            for val, name in ((vstart, 'start'), (vstop, 'stop'), (vstep, 'step')):
-                cur_label = QtWidgets.QLabel('%s %s:' % (var_name, name), parent=self)
-                cur_label.setAlignment(align_label)
-                cur_box = QtWidgets.QSpinBox(parent=self)
-                cur_box.setSingleStep(1)
-                cur_box.setMinimum(vmin)
-                cur_box.setMaximum(vmax)
-                cur_box.setValue(val)
-
-                box_list.append(cur_box)
-                lay.addWidget(cur_label, row_idx, col_idx, alignment=align_label)
-                lay.addWidget(cur_box, row_idx, col_idx + 1, alignment=align_box)
-                col_idx += 2
-
-            var_boxes[var_name] = box_list
-            col_idx = 0
-            row_idx += 1
+        widget_list = self.create_input_controls(ctrl_info, lay)
+        row_idx, col_idx = 3, 0
 
         # add Run/Cancel buttons
         run_button = QtWidgets.QPushButton('Run', parent=self)
@@ -133,7 +131,7 @@ class EyePlotFrame(FrameBase):
         # noinspection PyUnresolvedReferences
         save_button.clicked.connect(self._save_as)
         lay.addWidget(save_button, row_idx, 4, 1, 2)
-        return frame, var_boxes, run_button, cancel_button, save_button
+        return frame, widget_list, run_button, cancel_button, save_button
 
     def _init_data(self, img_item, tstart, tstop, tstep, ystart, ystop, ystep):
         tvec = np.arange(tstart, tstop, tstep)
@@ -159,32 +157,43 @@ class EyePlotFrame(FrameBase):
     def _start_measurement(self):
         if self.worker is None:
 
-            tstart, tstop, tstep = self.var_boxes['time']
-            ystart, ystop, ystep = self.var_boxes['y']
+            mod_name = self.config['eye_module']
+            cls_name = self.config['eye_class']
+            input_vals = self.get_input_values(self.widgets)
+            self.max_err = input_vals['max_err']
+            eye_config = {
+                'module': mod_name,
+                'class': cls_name,
+                'params': input_vals,
+            }
 
-            tstart = tstart.value()
-            tstop = tstop.value()
-            tstep = tstep.value()
-            ystart = ystart.value()
-            ystop = ystop.value()
-            ystep = ystep.value()
+            self.worker = WorkerThread(self.ctrl, eye_config)
+            self.worker.update.connect(self._update_plot)
+            self.worker.start()
 
-            tvec, yvec = self._init_data(self.img_item, tstart, tstop, tstep, ystart, ystop, ystep)
+        self.run.setEnabled(False)
+        self.cancel.setEnabled(True)
+        self.save.setEnabled(False)
 
-            """
-            mod_name = self.config['module']
-            cls_name = gui_config['class']
-            specs_fname = gui_config['specs_fname']
-            gui_cls = import_class(mod_name, cls_name)
-            gui_frame = gui_cls(ctrl, specs_fname, self.logger, conf_path=conf_p
-            """
-            self.run.setEnabled(False)
-            self.cancel.setEnabled(True)
-            self.save.setEnabled(False)
+    @QtCore.pyqtSlot(str)
+    def _update_plot(self, msg):
+        info = yaml.load(msg)
+        t_idx = info['t_idx']
+        y_idx = info['y_idx']
+        cnt = info['err_cnt']
+        self.err_arr[t_idx, y_idx, :] = cnt
+        if cnt < 0:
+            self.data_arr[t_idx, y_idx, :] = self.color_cursor
+        else:
+            self.data_arr[t_idx, y_idx, :] = int(round((self.max_err - cnt) * 255 / self.max_err))
+            self.img_item.setImage(self.data_arr, levels=(0, 255))
 
     @QtCore.pyqtSlot()
     def _stop_measurement(self):
-        pass
+        if self.worker is not None:
+            self.worker.stop = True
+            self.worker.wait()
+            self.worker = None
 
         self.run.setEnabled(True)
         self.cancel.setEnabled(False)

@@ -24,8 +24,8 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         self.ber = config['ber']
         self.max_err = config['max_err']
         self.y_guess = config.get('y_guess', None)
-        self.tvec = list(range(*config['t_range']))
-        self.yvec = list(range(*config['y_range']))
+        self.tvec = list(range(config['t_start'], config['t_stop'], config['t_step']))
+        self.yvec = list(range(config['y_start'], config['y_stop'], config['y_step']))
 
     @abc.abstractmethod
     def set_delay(self, val: int):
@@ -48,6 +48,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
                 if self.thread.stop:
                     raise StopException()
                 # first, measure BER at guessed offset
+                self.thread.send(dict(t_idx=t_idx, y_idx=guess_idx, err_cnt=-1))
                 self.set_delay(tval)
                 self.set_offset(self.yvec[guess_idx])
                 err_cnt = self.read_error()
@@ -115,6 +116,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
                 raise StopException()
 
             cur_idx = bin_iter.get_next()
+            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, err_cnt=-1))
             self.set_offset(self.yvec[cur_idx])
 
             err_cnt = self.read_error()
@@ -139,6 +141,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
             if self.thread.stop:
                 raise StopException()
 
+            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, err_cnt=-1))
             self.set_offset(self.yvec[cur_idx])
 
             err_cnt = self.read_error()
