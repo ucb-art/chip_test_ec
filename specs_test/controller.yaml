@@ -1,0 +1,16 @@
+# FPGA specifications
+fpga:
+  # FPGA controller Python module
+  module: 'chip_test_ec.backend.fpga.base'
+  # FPGA controller Python class
+  class: 'FPGAFake'
+  # FPGA controller parameters
+  params:
+    # scan configuration file
+    scan_file: 'scan_config.yaml'
+    # Whether this is in fake scan mode
+    fake_scan: True
+    # True to check every scan operation.
+    check_scan: False
+
+gpib: {}

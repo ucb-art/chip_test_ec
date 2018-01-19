@@ -61,10 +61,10 @@ class EyePlotFrame(FrameBase):
         self.lay.addWidget(pc_frame, 1, 0)
 
     def create_eye_plot(self, config):
-        tstart, tstop, tstep = config['time_sweep']
+        tstart, tstop, tstep = config['t_sweep']
         ystart, ystop, ystep = config['y_sweep']
         yname = config['y_name']
-        tick_step = config['tick_step']
+        t_tick_step, y_tick_step = config['tick_step']
 
         img_item = pyqtgraph.ImageItem()
         img_item.setOpts(axisOrder='row-major')
@@ -80,8 +80,8 @@ class EyePlotFrame(FrameBase):
         plt_item.setMouseEnabled(x=False, y=False)
 
         # set tick values
-        xtick_minor = [(val, str(val)) for val in tvec[0::tick_step]]
-        ytick_minor = [(val, str(val)) for val in yvec[0::tick_step]]
+        xtick_minor = [(val, str(val)) for val in tvec[0::t_tick_step]]
+        ytick_minor = [(val, str(val)) for val in yvec[0::y_tick_step]]
         plt_item.getAxis('bottom').setTicks([[], xtick_minor])
         plt_item.getAxis('left').setTicks([[], ytick_minor])
 

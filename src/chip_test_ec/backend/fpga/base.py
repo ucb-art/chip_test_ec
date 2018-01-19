@@ -477,3 +477,45 @@ class FPGABase(LoggingBase, metaclass=abc.ABCMeta):
             number of bits in the given scan bus.
         """
         return self._chain_blen[chain_name][bus_name]
+
+
+class FPGAFake(FPGABase):
+    """A fake FPGA class used for testing purposes only.
+
+    Parameters
+    ----------
+    scan_file : str
+        scan chain file name.
+    fake_scan : bool
+        If True, then will not actually do the scan procedure.  This is useful for
+        debugging.
+    check_scan : bool
+        True to check every scan operation.
+    """
+    def __init__(self, scan_file: str, fake_scan: bool=False, check_scan: bool=False) -> None:
+        FPGABase.__init__(self, scan_file, fake_scan=fake_scan, check_scan=check_scan)
+
+    def close(self) -> None:
+        pass
+
+    def update_pins(self, chain_info: Dict[str, Any], value: List[int], numbits: List[int]) -> List[int]:
+        return value
+
+    def is_scan_read_only(self, chain_name: str, bus_name: str) -> bool:
+        chain_info = self.get_scan_chain_info(chain_name)
+        return chain_info.get('read_only', False)
+
+    def scan_in_and_read_out(self, chain_info: Dict[str, Any], value: List[int], numbits: List[int]) -> List[int]:
+        return value
+
+    def send_i2c_cmds(self,
+                      i2c_name: str,
+                      cmd_list: List[Tuple[int, List[int], int]],
+                      ) -> List[Optional[List[int]]]:
+        return [None] * len(cmd_list)
+
+    def set_voltage(self, sup_name: str, val: float) -> None:
+        pass
+
+    def read_current(self, sup_name: str) -> float:
+        return 0

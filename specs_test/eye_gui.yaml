@@ -1,0 +1,10 @@
+eye_module: 'chip_test_ec.backend.serdes.eye'
+eye_class: 'EyePlotFake'
+t_sweep: [0 126 5]
+y_sweep: [0 256 4]
+y_name: 'Offset'
+tick_step: [10, 8]
+t_range: [0 126]
+y_range: [0 256]
+max_err: 100
+ber: 1.0e-2

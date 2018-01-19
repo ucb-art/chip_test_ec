@@ -150,3 +150,46 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
             if err_cnt == 0:
                 return cur_idx
         return -1
+
+
+class EyePlotFake(EyePlotBase):
+    """A fake eye diagram plotting class used for testing only."""
+
+    def __init__(self, thread: WorkerThread, ctrl: Controller, config: Dict[str, Any]):
+        EyePlotBase.__init__(self, thread, ctrl, config)
+        t0 = self.tvec[0]
+        t1 = self.tvec[-1]
+        y0 = self.yvec[0]
+        y1 = self.yvec[-1]
+
+        ta = 0.9 * t0 + 0.1 * t1
+        tb = (t0 + t1) / 2
+        tc = 0.1 * t0 + 0.9 * t1
+        ya = 0.9 * y0 + 0.1 * y1
+        yb = (y0 + y1) / 2
+        yc = 0.1 * y0 + 0.9 * y1
+
+        self.t_cur = t0
+        self.y_cur = y0
+        self.lower_bnd = [[(ya - yb) / (tb - ta), yb - ta * (ya - yb) / (tb - ta)],
+                          [(yb - ya) / (tc - tb), ya - tb * (yb - ya) / (tc - tb)],
+                          ]
+        self.upper_bnd = [[(yc - yb) / (tb - ta), yb - ta * (yc - yb) / (tb - ta)],
+                          [(yb - yc) / (tc - tb), yc - tb * (yb - yc) / (tc - tb)],
+                          ]
+
+    def set_delay(self, val: int):
+        self.t_cur = val
+
+    def set_offset(self, val: int):
+        self.y_cur = val
+
+    def read_error(self) -> int:
+        for m, b in self.lower_bnd:
+            if self.t_cur * m + b > self.y_cur:
+                return self.max_err
+        for m, b in self.upper_bnd:
+            if self.t_cur * m + b < self.y_cur:
+                return self.max_err
+
+        return 0
