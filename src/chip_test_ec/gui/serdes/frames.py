@@ -111,7 +111,7 @@ class EyePlotFrame(FrameBase):
         # create input controls
         frame, lay = self.create_sub_frame()
         widget_list = self.create_input_controls(ctrl_info, lay)
-        row_idx, col_idx = 3, 0
+        row_idx, col_idx = 4, 0
 
         # add Run/Cancel buttons
         run_button = QtWidgets.QPushButton('Run', parent=self)
