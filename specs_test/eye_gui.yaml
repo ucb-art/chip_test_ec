@@ -10,5 +10,5 @@ max_err: 100
 ber: 1.0e-2
 data_length: 32
 params:
-  data_rate: 1.0e9
+  data_rate: 1.0e+9
   confidence: 0.95

@@ -28,6 +28,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         self.y_guess = config['y_guess']
         self.is_pattern = config['is_pattern']
         self.pat_data = config['pat_data']
+        self.pat_len = len(self.pat_data)
         self.tvec = list(range(config['t_start'], config['t_stop'], config['t_step']))
         self.yvec = list(range(config['y_start'], config['y_stop'], config['y_step']))
         ber = config['ber']
@@ -58,21 +59,30 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         return ''
 
     def read_error(self) -> int:
+        if self.thread.stop:
+            raise StopException()
         self.init_error_meas(self.is_pattern)
+        if self.thread.stop:
+            raise StopException()
 
         if self.is_pattern:
             bits_read = 0
             cnt = 0
             while bits_read < self.nbits_meas and cnt <= self.max_err:
+                if self.thread.stop:
+                    raise StopException()
                 output = self.read_output()
                 for char1, char2 in zip(output, self.pat_data):
                     if char1 != char2:
                         cnt += 1
-                cnt += abs(len(output) - len(self.pat_data))
+                cnt += abs(len(output) - self.pat_len)
+                bits_read += self.pat_len
         else:
             cnt = 0
             t_start = time.time()
             while time.time() - t_start < self.time_meas and cnt <= self.max_err:
+                if self.thread.stop:
+                    raise StopException()
                 cnt += self.read_error_count()
 
         return min(cnt, self.max_err)
