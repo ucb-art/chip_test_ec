@@ -168,8 +168,9 @@ class EyePlotFrame(FrameBase):
             mod_name = self.config['eye_module']
             cls_name = self.config['eye_class']
             num_ticks = self.config['num_ticks']
+            input_vals = self.config['params'].copy()
 
-            input_vals = self.get_input_values(self.widgets)
+            input_vals.update(self.get_input_values(self.widgets))
             self.max_err = input_vals['max_err']
             y_name = input_vals['y_name']
             t_start, t_stop, t_step = input_vals['t_start'], input_vals['t_stop'], input_vals['t_step']

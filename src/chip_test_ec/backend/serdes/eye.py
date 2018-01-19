@@ -4,6 +4,7 @@ from typing import Dict, Any
 
 import abc
 import time
+import math
 import bisect
 
 from ...gui.base.threads import WorkerThread
@@ -22,7 +23,6 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         self.thread = thread
         self.ctrl = ctrl
 
-        self.ber = config['ber']
         self.max_err = config['max_err']
         self.y_name = config['y_name']
         self.y_guess = config['y_guess']
@@ -30,6 +30,12 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         self.pat_data = config['pat_data']
         self.tvec = list(range(config['t_start'], config['t_stop'], config['t_step']))
         self.yvec = list(range(config['y_start'], config['y_stop'], config['y_step']))
+        ber = config['ber']
+        data_rate = config['data_rate']
+        confidence = config['confidence']
+
+        self.nbits_meas = int(math.ceil(-math.log(1.0 - confidence) / ber))
+        self.time_meas = self.nbits_meas / data_rate
 
     @abc.abstractmethod
     def set_delay(self, val: int):
@@ -40,8 +46,36 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def read_error(self) -> int:
+    def init_error_meas(self, is_pattern: bool) -> None:
+        pass
+
+    @abc.abstractmethod
+    def read_error_count(self) -> int:
         return 0
+
+    @abc.abstractmethod
+    def read_output(self) -> str:
+        return ''
+
+    def read_error(self) -> int:
+        self.init_error_meas(self.is_pattern)
+
+        if self.is_pattern:
+            bits_read = 0
+            cnt = 0
+            while bits_read < self.nbits_meas and cnt <= self.max_err:
+                output = self.read_output()
+                for char1, char2 in zip(output, self.pat_data):
+                    if char1 != char2:
+                        cnt += 1
+                cnt += abs(len(output) - len(self.pat_data))
+        else:
+            cnt = 0
+            t_start = time.time()
+            while time.time() - t_start < self.time_meas and cnt <= self.max_err:
+                cnt += self.read_error_count()
+
+        return min(cnt, self.max_err)
 
     def run(self):
         num_y = len(self.yvec)
@@ -189,13 +223,26 @@ class EyePlotFake(EyePlotBase):
     def set_offset(self, val: int):
         self.y_cur = val
 
-    def read_error(self) -> int:
+    def init_error_meas(self, is_pattern: bool):
+        pass
+
+    def _in_eye(self):
         for m, b in self.lower_bnd:
             if self.t_cur * m + b > self.y_cur:
-                return self.max_err
+                return False
         for m, b in self.upper_bnd:
             if self.t_cur * m + b < self.y_cur:
-                return self.max_err
+                return False
+        return True
 
+    def read_error_count(self):
         time.sleep(0.05)
-        return 0
+        if self._in_eye():
+            return 0
+        return self.max_err
+
+    def read_output(self):
+        time.sleep(0.05)
+        if self._in_eye():
+            return self.pat_data
+        return ''.join(('0' if char == '1' else '1' for char in self.pat_data))
