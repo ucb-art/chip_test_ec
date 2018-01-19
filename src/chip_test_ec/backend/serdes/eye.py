@@ -3,6 +3,7 @@
 from typing import Dict, Any
 
 import abc
+import time
 import bisect
 
 from ...gui.base.threads import WorkerThread
@@ -42,6 +43,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
     def run(self):
         num_y = len(self.yvec)
         guess_idx = num_y // 2 if self.y_guess is None else bisect.bisect_left(self.yvec, self.y_guess)
+        guess_idx = max(0, min(guess_idx, len(self.yvec) - 1))
 
         try:
             for t_idx, tval in enumerate(self.tvec):
@@ -192,4 +194,5 @@ class EyePlotFake(EyePlotBase):
             if self.t_cur * m + b < self.y_cur:
                 return self.max_err
 
+        time.sleep(0.05)
         return 0

@@ -50,40 +50,33 @@ class EyePlotFrame(FrameBase):
         with open(specs_fname, 'r') as f:
             self.config = yaml.load(f)
 
-        self.img_item, plot_widget = self.create_eye_plot(self.config)
+        self.img_item, self.plot_widget = self.create_eye_plot(self.config)
 
         # create panel control frame
         pc_frame, self.widgets, self.run, self.cancel, self.save = self.create_panel_controls(self.config)
 
         # populate frame
         self.lay.setSpacing(0)
-        self.lay.addWidget(plot_widget, 0, 0)
+        self.lay.addWidget(self.plot_widget, 0, 0)
         self.lay.addWidget(pc_frame, 1, 0)
 
     def create_eye_plot(self, config):
         tstart, tstop, tstep = config['t_sweep']
         ystart, ystop, ystep = config['y_sweep']
         yname = config['y_name']
-        t_tick_step, y_tick_step = config['tick_step']
-
-        img_item = pyqtgraph.ImageItem()
-        img_item.setOpts(axisOrder='row-major')
-        tvec, yvec = self._init_data(img_item, tstart, tstop, tstep, ystart, ystop, ystep)
+        num_ticks = config['num_ticks']
 
         # create plot
         plot_widget = pyqtgraph.PlotWidget()
         plt_item = plot_widget.getPlotItem()
+        img_item = pyqtgraph.ImageItem()
         plt_item.addItem(img_item)
         plt_item.showGrid(x=True, y=True, alpha=1)
         plt_item.setLabel('left', yname)
         plt_item.setLabel('bottom', 'time')
         plt_item.setMouseEnabled(x=False, y=False)
 
-        # set tick values
-        xtick_minor = [(val, str(val)) for val in tvec[0::t_tick_step]]
-        ytick_minor = [(val, str(val)) for val in yvec[0::y_tick_step]]
-        plt_item.getAxis('bottom').setTicks([[], xtick_minor])
-        plt_item.getAxis('left').setTicks([[], ytick_minor])
+        self._init_data(plt_item, img_item, tstart, tstop, tstep, ystart, ystop, ystep, num_ticks)
 
         return img_item, plot_widget
 
@@ -133,25 +126,34 @@ class EyePlotFrame(FrameBase):
         lay.addWidget(save_button, row_idx, 4, 1, 2)
         return frame, widget_list, run_button, cancel_button, save_button
 
-    def _init_data(self, img_item, tstart, tstop, tstep, ystart, ystop, ystep):
+    def _init_data(self, plt_item, img_item, tstart, tstop, tstep, ystart, ystop, ystep, num_ticks):
         tvec = np.arange(tstart, tstop, tstep)
         yvec = np.arange(ystart, ystop, ystep)
         num_t = len(tvec)
         num_y = len(yvec)
         mat_shape = (num_t, num_y)
-        if self.data_arr is None or self.data_arr.shape != mat_shape:
-            self.data_arr = np.empty((num_t, num_y, 3), dtype=int)
+        if self.color_arr is None or self.err_arr.shape != mat_shape:
+            self.color_arr = np.empty((num_t, num_y, 3), dtype=int)
             self.err_arr = np.empty(mat_shape)
 
-        self.data_arr[:] = self.color_unfilled
+        self.color_arr[:] = self.color_unfilled
         self.err_arr.fill(-1)
         t0, tstep, y0, ystep = tvec[0], tvec[1] - tvec[0], yvec[0], yvec[1] - yvec[0]
 
         # create image
-        img_item.setImage(self.data_arr, levels=(0, 255))
-        img_item.setRect(QtCore.QRectF(t0 - tstep / 2, y0 - ystep / 2, tstep * num_t, ystep * num_y))
+        img_item.setImage(self.color_arr, levels=(0, 255))
+        view_rect = QtCore.QRectF(t0 - tstep / 2, y0 - ystep / 2, tstep * num_t, ystep * num_y)
+        img_item.setRect(view_rect)
 
-        return tvec, yvec
+        # set tick values
+        view_box = plt_item.getViewBox()
+        view_box.setRange(rect=view_rect, update=True)
+        t_tick_step = -(-num_t // num_ticks)
+        y_tick_step = -(-num_y // num_ticks)
+        xtick_minor = [(val, str(val)) for val in tvec[0::t_tick_step]]
+        ytick_minor = [(val, str(val)) for val in yvec[0::y_tick_step]]
+        plt_item.getAxis('bottom').setTicks([[], xtick_minor])
+        plt_item.getAxis('left').setTicks([[], ytick_minor])
 
     @QtCore.pyqtSlot()
     def _start_measurement(self):
@@ -159,6 +161,8 @@ class EyePlotFrame(FrameBase):
 
             mod_name = self.config['eye_module']
             cls_name = self.config['eye_class']
+            num_ticks = self.config['num_ticks']
+
             input_vals = self.get_input_values(self.widgets)
             self.max_err = input_vals['max_err']
             eye_config = {
@@ -166,9 +170,17 @@ class EyePlotFrame(FrameBase):
                 'class': cls_name,
                 'params': input_vals,
             }
+            t_start, t_stop, t_step = input_vals['t_start'], input_vals['t_stop'], input_vals['t_step']
+            y_start, y_stop, y_step = input_vals['y_start'], input_vals['y_stop'], input_vals['y_step']
+
+            plt_item = self.plot_widget.getPlotItem()
+            self._init_data(plt_item, self.img_item, t_start, t_stop, t_step,
+                            y_start, y_stop, y_step, num_ticks)
 
             self.worker = WorkerThread(self.ctrl, eye_config)
             self.worker.update.connect(self._update_plot)
+            # noinspection PyUnresolvedReferences
+            self.worker.finished.connect(self._stop_measurement)
             self.worker.start()
 
         self.run.setEnabled(False)
@@ -181,12 +193,12 @@ class EyePlotFrame(FrameBase):
         t_idx = info['t_idx']
         y_idx = info['y_idx']
         cnt = info['err_cnt']
-        self.err_arr[t_idx, y_idx, :] = cnt
+        self.err_arr[t_idx, y_idx] = cnt
         if cnt < 0:
-            self.data_arr[t_idx, y_idx, :] = self.color_cursor
+            self.color_arr[t_idx, y_idx, :] = self.color_cursor
         else:
-            self.data_arr[t_idx, y_idx, :] = int(round((self.max_err - cnt) * 255 / self.max_err))
-            self.img_item.setImage(self.data_arr, levels=(0, 255))
+            self.color_arr[t_idx, y_idx, :] = int(round((self.max_err - cnt) * 255 / self.max_err))
+            self.img_item.setImage(self.color_arr, levels=(0, 255))
 
     @QtCore.pyqtSlot()
     def _stop_measurement(self):

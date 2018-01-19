@@ -2,6 +2,8 @@
 
 """This module defines top level functions that starts the chip testing GUI."""
 
+# noinspection PyUnresolvedReferences
+import pyqtgraph
 from PyQt5 import QtWidgets
 
 from chip_test_ec.gui.core import MainWindow
