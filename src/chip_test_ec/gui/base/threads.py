@@ -14,6 +14,7 @@ from PyQt5 import QtCore
 from ...backend.core import Controller
 from ...util.core import import_class
 
+
 class WorkerThread(QtCore.QThread):
 
     update = QtCore.pyqtSignal(str)
