@@ -779,7 +779,7 @@ class DispCtrlFrame(FrameBase):
                                                          'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
-            if not fname.endswith('.yaml') or not fname.endswith('.yml'):
+            if not fname.endswith('.yaml') and not fname.endswith('.yml'):
                 fname += '.yaml'
             self.logger.println('Saving to file: %s' % fname)
             attrs = dict(step_size=self.step_box.value(),
@@ -907,7 +907,7 @@ class CtrlFrame(FrameBase):
                                                          'YAML files (*.yaml *.yml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
-            if not fname.endswith('.yaml') or not fname.endswith('.yml'):
+            if not fname.endswith('.yaml') and not fname.endswith('.yml'):
                 fname += '.yaml'
             self.logger.println('Saving to file: %s' % fname)
             attrs = dict(step_size=self.step_box.value(),

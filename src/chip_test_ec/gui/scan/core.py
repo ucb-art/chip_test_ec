@@ -221,7 +221,7 @@ class ScanFrame(QtWidgets.QFrame):
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
             # check file ends with .yaml/.yml suffix
-            if not fname.endswith('.yaml') or not fname.endswith('.yml'):
+            if not fname.endswith('.yaml') and not fname.endswith('.yml'):
                 fname += '.yaml'
             self.logger.println('Saving to file: %s' % fname)
             self.ctrl.fpga.save_scan_to_file(fname)
