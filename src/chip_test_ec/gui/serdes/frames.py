@@ -65,6 +65,8 @@ class EyePlotFrame(FrameBase):
         ystart, ystop, ystep = config['y_sweep']
         y_name = config['y_name_list'][0]
         num_ticks = config['num_ticks']
+        t_label = config['t_label']
+        y_label = config['y_label']
 
         # create plot
         plot_widget = pyqtgraph.PlotWidget()
@@ -74,10 +76,11 @@ class EyePlotFrame(FrameBase):
         plt_item.showGrid(x=True, y=True, alpha=1)
         for key in plt_item.axes:
             plt_item.getAxis(key).setZValue(1)
-        plt_item.setLabel('bottom', 'time')
+        plt_item.setLabel('bottom', t_label)
         plt_item.setMouseEnabled(x=False, y=False)
 
-        self._init_data(plt_item, img_item, y_name, tstart, tstop, tstep, ystart, ystop, ystep, num_ticks)
+        self._init_data(plt_item, img_item, y_label, y_name, tstart, tstop, tstep,
+                        ystart, ystop, ystep, num_ticks)
 
         return img_item, plot_widget
 
@@ -133,7 +136,8 @@ class EyePlotFrame(FrameBase):
         lay.addWidget(save_button, row_idx, 4, 1, 2)
         return frame, widget_list, run_button, cancel_button, save_button
 
-    def _init_data(self, plt_item, img_item, y_name, tstart, tstop, tstep, ystart, ystop, ystep, num_ticks):
+    def _init_data(self, plt_item, img_item, y_label, y_name, tstart, tstop, tstep,
+                   ystart, ystop, ystep, num_ticks):
         tvec = np.arange(tstart, tstop, tstep)
         yvec = np.arange(ystart, ystop, ystep)
         num_t = len(tvec)
@@ -161,7 +165,7 @@ class EyePlotFrame(FrameBase):
         ytick_minor = [(val, str(val)) for val in yvec[0::y_tick_step]]
         plt_item.getAxis('bottom').setTicks([[], xtick_minor])
         plt_item.getAxis('left').setTicks([[], ytick_minor])
-        plt_item.setLabel('left', y_name)
+        plt_item.setLabel('left', y_label % y_name)
 
     @QtCore.pyqtSlot()
     def _start_measurement(self):
@@ -170,6 +174,7 @@ class EyePlotFrame(FrameBase):
             mod_name = self.config['eye_module']
             cls_name = self.config['eye_class']
             num_ticks = self.config['num_ticks']
+            y_label = self.config['y_label']
             input_vals = self.config['params'].copy()
 
             input_vals.update(self.get_input_values(self.widgets))
@@ -185,7 +190,7 @@ class EyePlotFrame(FrameBase):
             }
 
             plt_item = self.plot_widget.getPlotItem()
-            self._init_data(plt_item, self.img_item, y_name, t_start, t_stop, t_step,
+            self._init_data(plt_item, self.img_item, y_label, y_name, t_start, t_stop, t_step,
                             y_start, y_stop, y_step, num_ticks)
 
             self.worker = WorkerThread(self.ctrl, eye_config)
