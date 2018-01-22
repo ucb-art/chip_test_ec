@@ -1,15 +1,34 @@
 # -*- coding: utf-8 -*-
 
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 
 import abc
 import time
 import math
 import bisect
 
+import scipy.misc
+import scipy.optimize
+
 from ...gui.base.threads import WorkerThread
 from ...util.search import BinaryIterator
 from ..core import Controller
+
+
+def get_ber_list(confidence, ntot, nerr_max, targ_ber):
+    targ_val = 1 - confidence
+    ber_list = []
+    for nerr in range(nerr_max + 1):
+
+        def fun(p):
+            s = 0
+            for k in range(nerr + 1):
+                s += scipy.misc.comb(ntot, k) * p**k * (1-p)**(ntot-k)
+            return s - targ_val
+
+        ber_list.append(scipy.optimize.brentq(fun, 0, 0.5, xtol=targ_ber * 1e-3))
+
+    return ber_list
 
 
 class StopException(Exception):
@@ -23,7 +42,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         self.thread = thread
         self.ctrl = ctrl
 
-        self.max_err = config['max_err']
+        self.max_ber = config['max_ber']
         self.y_name = config['y_name']
         self.y_guess = config['y_guess']
         self.is_pattern = config['is_pattern']
@@ -31,12 +50,16 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         self.pat_len = len(self.pat_data)
         self.tvec = list(range(config['t_start'], config['t_stop'], config['t_step']))
         self.yvec = list(range(config['y_start'], config['y_stop'], config['y_step']))
-        ber = config['ber']
-        data_rate = config['data_rate']
+        self.targ_ber = config['ber']
+        self.data_rate = config['data_rate']
         confidence = config['confidence']
+        self.nerr_max = config.get('nerr_max', 10)
 
-        self.nbits_meas = int(math.ceil(-math.log(1.0 - confidence) / ber))
-        self.time_meas = self.nbits_meas / data_rate
+        self.nbits_meas = int(math.ceil(-math.log(1.0 - confidence) / self.targ_ber))
+        self.time_meas = self.nbits_meas / self.data_rate
+        self.max_err_val = (self.max_ber, self.nbits_meas, self.nbits_meas)
+        self.ideal_val = (self.targ_ber, 0, self.nbits_meas)
+        self.ber_table = get_ber_list(confidence, self.nbits_meas, self.nerr_max, self.targ_ber)
 
     @abc.abstractmethod
     def set_delay(self, val: int):
@@ -58,7 +81,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
     def read_output(self) -> str:
         return ''
 
-    def read_error(self) -> int:
+    def read_error(self) -> Tuple[float, int, int]:
         if self.thread.stop:
             raise StopException()
         self.init_error_meas(self.is_pattern)
@@ -68,7 +91,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         if self.is_pattern:
             bits_read = 0
             cnt = 0
-            while bits_read < self.nbits_meas and cnt <= self.max_err:
+            while bits_read < self.nbits_meas and (cnt <= self.nerr_max or cnt / bits_read < self.max_ber):
                 if self.thread.stop:
                     raise StopException()
                 output = self.read_output()
@@ -83,45 +106,59 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
             if self.thread.stop:
                 raise StopException()
             cnt += self.read_error_count()
-            while time.time() - t_start < self.time_meas and cnt <= self.max_err:
+            t_dur = time.time() - t_start
+            bits_read = t_dur * self.data_rate
+            while t_dur < self.time_meas and (cnt <= self.nerr_max or cnt / bits_read < self.max_ber):
                 if self.thread.stop:
                     raise StopException()
                 cnt += self.read_error_count()
+                t_dur = time.time() - t_start
+                bits_read = t_dur * self.data_rate
+            bits_read = int(bits_read)
 
-        return min(cnt, self.max_err)
+        if cnt <= self.nerr_max:
+            ber = self.ber_table[cnt]
+        else:
+            ber = cnt / bits_read
+
+        if cnt == 0:
+            print(ber, cnt, bits_read)
+        return ber, cnt, bits_read
 
     def run(self):
         num_y = len(self.yvec)
         guess_idx = num_y // 2 if self.y_guess is None else bisect.bisect_left(self.yvec, self.y_guess)
         guess_idx = max(0, min(guess_idx, len(self.yvec) - 1))
-
         try:
             for t_idx, tval in enumerate(self.tvec):
                 if self.thread.stop:
                     raise StopException()
                 # first, measure BER at guessed offset
-                self.thread.send(dict(t_idx=t_idx, y_idx=guess_idx, err_cnt=-1))
+                self.thread.send(dict(t_idx=t_idx, y_idx=guess_idx, val=(0, -1, 0)))
                 self.set_delay(tval)
                 self.set_offset(self.yvec[guess_idx])
-                err_cnt = self.read_error()
-                self.thread.send(dict(t_idx=t_idx, y_idx=guess_idx, err_cnt=err_cnt))
+                val = self.read_error()
+                mark_set = {guess_idx}
+                self.thread.send(dict(t_idx=t_idx, y_idx=guess_idx, val=val))
 
-                if err_cnt == 0:
+                if val[1] == 0:
                     # the guessed offset is in the eye
                     # use binary search to find bottom eye edge
-                    bot_edge_idx = self._bin_search_eye_edge(t_idx, 0, guess_idx, True)
+                    bot_edge_idx = self._bin_search_eye_edge(mark_set, t_idx, 0, guess_idx, True)
                     # mark all region below eye as max errors.
-                    for idx in range(0, bot_edge_idx - 1):
-                        self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
+                    for idx in range(0, bot_edge_idx):
+                        if idx not in mark_set:
+                            self.thread.send(dict(t_idx=t_idx, y_idx=idx, val=self.max_err_val))
                     # use binary search to find top eye edge
-                    top_edge_idx = self._bin_search_eye_edge(t_idx, guess_idx + 1, num_y, False)
+                    top_edge_idx = self._bin_search_eye_edge(mark_set, t_idx, guess_idx + 1, num_y, False)
                     # mark all region above eye as max errors.
-                    for idx in range(top_edge_idx + 2, num_y):
-                        self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
+                    for idx in range(top_edge_idx + 1, num_y):
+                        if idx not in mark_set:
+                            self.thread.send(dict(t_idx=t_idx, y_idx=idx, val=self.max_err_val))
                 else:
                     # the guessed offset is not in the eye.
                     # assume we are below the eye, linear search bottom edge
-                    edge_idx, is_bot_edge = self._flood_search_eye_edge(t_idx, 0, num_y, guess_idx, guess_idx)
+                    edge_idx, is_bot_edge = self._flood_search_eye_edge(mark_set, t_idx, 0, num_y, guess_idx, guess_idx)
                     if edge_idx < 0:
                         # we did not find any edge, and we swept all possibilities.  So just continue
                         continue
@@ -129,29 +166,33 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
                         # we found bottom edge
                         bot_edge_idx = edge_idx
                         # mark all region below eye as max errors.
-                        for idx in range(0, bot_edge_idx - 1):
-                            self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
+                        for idx in range(0, bot_edge_idx):
+                            if idx not in mark_set:
+                                self.thread.send(dict(t_idx=t_idx, y_idx=idx, val=self.max_err_val))
                         # use binary search to find top eye edge
-                        top_edge_idx = self._bin_search_eye_edge(t_idx, bot_edge_idx + 1, num_y, False)
+                        top_edge_idx = self._bin_search_eye_edge(mark_set, t_idx, bot_edge_idx + 1, num_y, False)
                         # mark all region above eye as max errors.
-                        for idx in range(top_edge_idx + 2, num_y):
-                            self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
+                        for idx in range(top_edge_idx + 1, num_y):
+                            if idx not in mark_set:
+                                self.thread.send(dict(t_idx=t_idx, y_idx=idx, val=self.max_err_val))
                     else:
                         # we found top edge
                         top_edge_idx = edge_idx
                         # we found top edge
                         # mark all region above eye as max errors.
-                        for idx in range(top_edge_idx + 2, num_y):
-                            self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
+                        for idx in range(top_edge_idx + 1, num_y):
+                            if idx not in mark_set:
+                                self.thread.send(dict(t_idx=t_idx, y_idx=idx, val=self.max_err_val))
                         # use binary search to find bottom eye edge
-                        bot_edge_idx = self._bin_search_eye_edge(t_idx, 0, top_edge_idx, True)
+                        bot_edge_idx = self._bin_search_eye_edge(mark_set, t_idx, 0, top_edge_idx, True)
                         # mark all region below eye as max errors.
-                        for idx in range(0, bot_edge_idx - 1):
-                            self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=self.max_err))
+                        for idx in range(0, bot_edge_idx):
+                            if idx not in mark_set:
+                                self.thread.send(dict(t_idx=t_idx, y_idx=idx, val=self.max_err_val))
 
                 # mark all region in the eye as no errors.
                 for idx in range(bot_edge_idx + 1, top_edge_idx):
-                    self.thread.send(dict(t_idx=t_idx, y_idx=idx, err_cnt=0))
+                    self.thread.send(dict(t_idx=t_idx, y_idx=idx, val=self.ideal_val))
 
                 # update guessed offset
                 guess_idx = (bot_edge_idx + top_edge_idx) // 2
@@ -159,7 +200,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         except StopException:
             pass
 
-    def _bin_search_eye_edge(self, t_idx, bot_idx, top_idx, eye_on_top):
+    def _bin_search_eye_edge(self, mark_set, t_idx, bot_idx, top_idx, eye_on_top):
         bin_iter = BinaryIterator(bot_idx, top_idx)
         edge_idx = top_idx if eye_on_top else bot_idx - 1
         while bin_iter.has_next():
@@ -167,13 +208,15 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
                 raise StopException()
 
             cur_idx = bin_iter.get_next()
-            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, err_cnt=-1))
+            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, val=(0, -1, 0)))
             self.set_offset(self.yvec[cur_idx])
+            if self.thread.stop:
+                raise StopException()
+            val = self.read_error()
+            mark_set.add(cur_idx)
+            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, val=val))
 
-            err_cnt = self.read_error()
-            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, err_cnt=err_cnt))
-
-            if err_cnt == 0:
+            if val[1] == 0:
                 edge_idx = cur_idx
                 if eye_on_top:
                     bin_iter.down()
@@ -186,7 +229,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
 
         return edge_idx
 
-    def _flood_search_eye_edge(self, t_idx, start_idx, stop_idx, bot_idx, top_idx):
+    def _flood_search_eye_edge(self, mark_set, t_idx, start_idx, stop_idx, bot_idx, top_idx):
         cur_dir = -1
         while bot_idx > start_idx or top_idx < stop_idx - 1:
             if cur_dir < 0 and bot_idx > start_idx or top_idx == stop_idx - 1:
@@ -197,13 +240,15 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
             if self.thread.stop:
                 raise StopException()
 
-            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, err_cnt=-1))
+            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, val=(0, -1, 0)))
             self.set_offset(self.yvec[cur_idx])
+            if self.thread.stop:
+                raise StopException()
+            val = self.read_error()
+            mark_set.add(cur_idx)
+            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, val=val))
 
-            err_cnt = self.read_error()
-            self.thread.send(dict(t_idx=t_idx, y_idx=cur_idx, err_cnt=err_cnt))
-
-            if err_cnt == 0:
+            if val[1] == 0:
                 # found edge
                 return cur_idx, cur_idx < bot_idx
 
@@ -262,7 +307,7 @@ class EyePlotFake(EyePlotBase):
         time.sleep(0.05)
         if self._in_eye():
             return 0
-        return self.max_err
+        return self.nbits_meas
 
     def read_output(self):
         time.sleep(0.05)

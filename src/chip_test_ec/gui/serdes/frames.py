@@ -45,8 +45,8 @@ class EyePlotFrame(FrameBase):
         self.color_arr = None
         self.err_arr = None
         self.worker = None
-        self.max_err = None
-
+        self.max_ber = None
+        self.min_ber = None
         with open(specs_fname, 'r') as f:
             self.config = yaml.load(f)
 
@@ -91,7 +91,7 @@ class EyePlotFrame(FrameBase):
         t_start, t_stop, t_step = config['t_sweep']
         y_start, y_stop, y_step = config['y_sweep']
         y_name_list = config['y_name_list']
-        max_err = config['max_err']
+        max_ber = config['max_ber']
         ber = config['ber']
         data_length = config['data_length']
 
@@ -105,7 +105,7 @@ class EyePlotFrame(FrameBase):
                       ],
                      [dict(name='y_name', dtype='choice', values=y_name_list),
                       dict(name='y_guess', dtype='int', vmin=y_min, vmax=y_max),
-                      dict(name='max_err', dtype='int', vmin=0, vmax=(1 << 31) - 1, vdef=max_err),
+                      dict(name='max_ber', dtype='float', vmin=0, vmax=1, decimals=4, vdef=max_ber),
                       dict(name='ber', dtype='float', vmin=0, vmax=1, decimals=4, vdef=ber),
                       ],
                      [dict(name='is_pattern', dtype='bool', vdef=False),
@@ -178,7 +178,8 @@ class EyePlotFrame(FrameBase):
             input_vals = self.config['params'].copy()
 
             input_vals.update(self.get_input_values(self.widgets))
-            self.max_err = input_vals['max_err']
+            self.max_ber = input_vals['max_ber']
+            self.min_ber = input_vals['ber']
             y_name = input_vals['y_name']
             t_start, t_stop, t_step = input_vals['t_start'], input_vals['t_stop'], input_vals['t_step']
             y_start, y_stop, y_step = input_vals['y_start'], input_vals['y_stop'], input_vals['y_step']
@@ -208,13 +209,15 @@ class EyePlotFrame(FrameBase):
         info = yaml.load(msg)
         t_idx = info['t_idx']
         y_idx = info['y_idx']
-        cnt = info['err_cnt']
-        self.err_arr[t_idx, y_idx] = cnt
+        ber, cnt, ntot = info['val']
+        self.err_arr[t_idx, y_idx] = ber
         if cnt < 0:
             self.color_arr[t_idx, y_idx, :] = self.color_cursor
         else:
-            self.color_arr[t_idx, y_idx, :] = int(round((self.max_err - cnt) * 255 / self.max_err))
-            self.img_item.setImage(self.color_arr, levels=(0, 255))
+            color_ber = min(max(self.min_ber, ber), self.max_ber)
+            scale = (np.log10(color_ber) - np.log10(self.min_ber)) / (np.log10(self.max_ber) - np.log10(self.min_ber))
+            self.color_arr[t_idx, y_idx, :] = int(round((1 - scale) * 255))
+        self.img_item.setImage(self.color_arr, levels=(0, 255))
 
     @QtCore.pyqtSlot()
     def _stop_measurement(self):

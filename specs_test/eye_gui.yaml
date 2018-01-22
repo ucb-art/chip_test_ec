@@ -8,8 +8,8 @@ y_name_list: ['Offset1', 'Offset2']
 num_ticks: 12
 t_range: [0, 126]
 y_range: [-128, 129]
-max_err: 20
-ber: 1.0e-2
+max_ber: 1.0e-1
+ber: 1.0e-3
 data_length: 32
 params:
   data_rate: 1.0e+9
