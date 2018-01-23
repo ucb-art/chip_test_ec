@@ -121,8 +121,6 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         else:
             ber = cnt / bits_read
 
-        if cnt == 0:
-            print(ber, cnt, bits_read)
         return ber, cnt, bits_read
 
     def run(self):
@@ -250,7 +248,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
 
             if val[1] == 0:
                 # found edge
-                return cur_idx, cur_idx < bot_idx
+                return cur_idx, cur_idx > top_idx
 
             bot_idx = min(bot_idx, cur_idx)
             top_idx = max(top_idx, cur_idx)
