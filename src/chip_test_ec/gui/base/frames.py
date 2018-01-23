@@ -16,7 +16,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from .dialogs import FuncDialog
 
 # type check imports
-from .displays import LogWidget
+from .displays import LogWidget, BERDisplay
 from .fields import LineEditBinary
 from ...backend.core import Controller
 
@@ -295,6 +295,7 @@ class ScanDisplayFrame(FrameBase):
                 start = disp_info.get('start', 0)
                 step = disp_info.get('step', 1)
                 compare = disp_info.get('compare', False)
+                ber = disp_info.get('ber', None)
 
                 num_bits = fpga.get_scan_length(chain_name, bus_name)
                 scan_val = fpga.get_scan(chain_name, bus_name)
@@ -319,6 +320,7 @@ class ScanDisplayFrame(FrameBase):
                 label.setAlignment(align_label)
 
                 disp_field = QtWidgets.QLabel(disp_str, parent=self)
+                disp_field.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
                 disp_field.setFont(disp_font)
 
                 if compare:
@@ -337,6 +339,22 @@ class ScanDisplayFrame(FrameBase):
                 self.lay.addWidget(disp_field, row_idx, col_idx + 1)
                 disp_list.append((disp_field, chain_name, bus_name, disp_type, num_bits, (start, step)))
                 row_idx += 1
+                if ber:
+                    data_rate = ber['data_rate']
+                    confidence = ber['confidence']
+                    err_max = ber['err_max']
+                    targ_ber = ber['targ_ber']
+                    ber_display = BERDisplay(data_rate, confidence, err_max, targ_ber, parent=self)
+                    ber_display.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
+                    ber_display.setFont(disp_font)
+                    disp_list.append((ber_display, chain_name, bus_name, disp_type, num_bits, (start, step)))
+                    clear_button = QtWidgets.QPushButton('reset %s' % label_name, parent=self)
+                    # noinspection PyUnresolvedReferences
+                    clear_button.clicked.connect(ber_display.reset_error_count)
+
+                    self.lay.addWidget(clear_button, row_idx, col_idx)
+                    self.lay.addWidget(ber_display, row_idx, col_idx + 1)
+                    row_idx += 1
 
             row_idx = 0
             col_idx += 2

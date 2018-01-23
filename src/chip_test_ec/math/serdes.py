@@ -26,8 +26,11 @@ def get_ber_list(confidence, ntot, nerr_max, tol):
     return [get_ber_exact(confidence, ntot, nerr, tol) for nerr in range(nerr_max + 1)]
 
 
-def get_ber(confidence, ntot, nerr):
-    if nerr <= 10:
-        return get_ber(confidence, ntot, nerr)
+def get_ber(confidence, ntot, nerr, tol=1e-15, cutoff=10):
+    if ntot == 0:
+        return 0
+
+    if nerr <= cutoff:
+        return get_ber_exact(confidence, ntot, nerr, tol)
     else:
         return nerr / ntot
