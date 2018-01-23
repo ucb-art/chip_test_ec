@@ -7,28 +7,10 @@ import time
 import math
 import bisect
 
-import scipy.misc
-import scipy.optimize
-
 from ...gui.base.threads import WorkerThread
 from ...util.search import BinaryIterator
+from ...math.serdes import get_ber_list
 from ..core import Controller
-
-
-def get_ber_list(confidence, ntot, nerr_max, targ_ber):
-    targ_val = 1 - confidence
-    ber_list = []
-    for nerr in range(nerr_max + 1):
-
-        def fun(p):
-            s = 0
-            for k in range(nerr + 1):
-                s += scipy.misc.comb(ntot, k) * p**k * (1-p)**(ntot-k)
-            return s - targ_val
-
-        ber_list.append(scipy.optimize.brentq(fun, 0, 0.5, xtol=targ_ber * 1e-3))
-
-    return ber_list
 
 
 class StopException(Exception):
@@ -59,7 +41,7 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         self.time_meas = self.nbits_meas / self.data_rate
         self.max_err_val = (self.max_ber, self.nbits_meas, self.nbits_meas)
         self.ideal_val = (self.targ_ber, 0, self.nbits_meas)
-        self.ber_table = get_ber_list(confidence, self.nbits_meas, self.nerr_max, self.targ_ber)
+        self.ber_table = get_ber_list(confidence, self.nbits_meas, self.nerr_max, self.targ_ber * 1e-3)
 
     @abc.abstractmethod
     def set_delay(self, val: int):
