@@ -24,7 +24,7 @@ class AG81142A(GPIBController):
         GPIBController.__init__(self, bid, pad, timeout_ms=timeout_ms, **kwargs)
 
     def get_output_delay(self) -> float:
-        """Returns the output delay in picoseconds."""
+        """Returns the output delay in seconds."""
         val = self.query('OUTP:DEL?').strip()
         return float(val)
 

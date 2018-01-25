@@ -44,8 +44,16 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         self.ber_table = get_ber_list(confidence, self.nbits_meas, self.nerr_max, self.targ_ber * 1e-3)
 
     @abc.abstractmethod
+    def get_delay(self):
+        return 0
+
+    @abc.abstractmethod
     def set_delay(self, val: int):
         pass
+
+    @abc.abstractmethod
+    def get_offset(self):
+        return 0
 
     @abc.abstractmethod
     def set_offset(self, val: int):
@@ -84,9 +92,9 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
                 bits_read += self.pat_len
         else:
             cnt = 0
-            t_start = time.time()
             if self.thread.stop:
                 raise StopException()
+            t_start = time.time()
             cnt += self.read_error_count()
             t_dur = time.time() - t_start
             bits_read = t_dur * self.data_rate
@@ -106,6 +114,8 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
         return ber, cnt, bits_read
 
     def run(self):
+        init_delay = self.get_delay()
+        init_offset = self.get_offset()
         num_y = len(self.yvec)
         guess_idx = num_y // 2 if self.y_guess is None else bisect.bisect_left(self.yvec, self.y_guess)
         guess_idx = max(0, min(guess_idx, len(self.yvec) - 1))
@@ -179,6 +189,9 @@ class EyePlotBase(object, metaclass=abc.ABCMeta):
 
         except StopException:
             pass
+        finally:
+            self.set_delay(init_delay)
+            self.set_offset(init_offset)
 
     def _bin_search_eye_edge(self, mark_set, t_idx, bot_idx, top_idx, eye_on_top):
         bin_iter = BinaryIterator(bot_idx, top_idx)
