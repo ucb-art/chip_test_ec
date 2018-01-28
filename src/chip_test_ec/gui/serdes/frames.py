@@ -240,3 +240,5 @@ class EyePlotFrame(FrameBase):
                 fname += '.npy'
             self.logger.println('Saving to file: %s' % fname)
             np.save(fname, self.err_arr)
+
+

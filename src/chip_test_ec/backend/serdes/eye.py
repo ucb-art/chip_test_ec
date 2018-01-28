@@ -307,3 +307,46 @@ class EyePlotFake(EyePlotBase):
         if self._in_eye():
             return self.pat_data
         return ''.join(('0' if char == '1' else '1' for char in self.pat_data))
+
+
+class ImpPlotBase(EyePlotBase, metaclass=abc.ABCMeta):
+    """A class used to plot impulse response."""
+    def __init__(self, thread: WorkerThread, ctrl: Controller, config: Dict[str, Any]):
+        EyePlotBase.__init__(self, thread, ctrl, config)
+
+        self.nsamp = config['nsamp']
+        self.read_idx = config.get('read_idx', 0)
+
+    def init_error_meas(self, is_pattern: bool):
+        pass
+
+    def read_error_count(self):
+        return 0
+
+    def read_output_type(self):
+        num_zero = 0
+        num_one = 0
+        for _ in range(self.nsamp):
+            if self.thread.stop:
+                raise StopException()
+            cur_out = self.read_output()[self.read_idx]
+            if cur_out == '0':
+                num_zero += 1
+            else:
+                num_one += 1
+            if num_zero != 0 and num_one != 0:
+                return 0
+
+        if num_zero == 0:
+            return 1
+        return -1
+
+    def read_error(self) -> Tuple[float, int, int]:
+        if self.thread.stop:
+            raise StopException()
+
+        out_type = self.read_output_type()
+        if out_type == 0:
+            return self.targ_ber, 0, self.nbits_meas
+        else:
+            return self.max_err_val
