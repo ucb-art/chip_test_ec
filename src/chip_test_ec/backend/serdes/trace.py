@@ -90,15 +90,13 @@ class TracePlotBase(object, metaclass=abc.ABCMeta):
 
     def _send_focus(self, t_idx, y_idx):
         t0 = self.tvec[t_idx]
-        yval = self.yvec[y_idx]
         for toff in self.toff_list:
-            self.thread.send(dict(tval=t0 + toff, yval=yval, val=2))
+            self.thread.send(dict(tval=t0 + toff, y_idx=y_idx, val=2))
 
     def _send_mark(self, t_idx, y_idx, cur_idx, otype):
         t0 = self.tvec[t_idx]
-        yval = self.yvec[y_idx]
         toff = self.toff_list[cur_idx]
-        self.thread.send(dict(tval=t0 + toff, yval=yval, val=otype))
+        self.thread.send(dict(tval=t0 + toff, y_idx=y_idx, val=otype))
 
     def eval_y(self, t_idx, y_idx, bot_edge_intv, top_edge_intv):
         self.set_offset(self.yvec[y_idx])
