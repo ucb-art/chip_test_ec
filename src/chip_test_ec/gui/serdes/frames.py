@@ -270,9 +270,10 @@ class TracePlotFrame(FrameBase):
         super(TracePlotFrame, self).__init__(ctrl, conf_path=conf_path, font_size=font_size, parent=parent)
         self.logger = logger
         self.color_arr = None
-        self.trace_err = None
+        self.trace_data = None
         self.t0 = None
         self.tstep = None
+        self.yvec = None
         self.worker = None
         with open(specs_fname, 'r') as f:
             self.config = yaml.load(f)
@@ -303,7 +304,7 @@ class TracePlotFrame(FrameBase):
         for key in plt_item.axes:
             plt_item.getAxis(key).setZValue(1)
         plt_item.setLabel('bottom', t_label)
-        plt_item.setMouseEnabled(x=False, y=False)
+        # plt_item.setMouseEnabled(x=False, y=False)
 
         self._init_data(plt_item, img_item, y_label, tstart, tstop, tstep,
                         ystart, ystop, ystep, num_ticks)
@@ -365,19 +366,18 @@ class TracePlotFrame(FrameBase):
                    ystart, ystop, ystep, num_ticks):
         output_len = self.config['params']['output_len']
         tper = int(round(np.ceil(1e12 / self.config['data_rate'])))
-        tstop_plot = tstop + tper * output_len
+        tstop_plot = tstop + tper * (output_len - 1)
 
         tvec = np.arange(tstart, tstop_plot, tstep)
-        yvec = np.arange(ystart, ystop, ystep)
+        self.yvec = np.arange(ystart, ystop, ystep)
         num_t = len(tvec)
-        num_y = len(yvec)
+        num_y = len(self.yvec)
         mat_shape = (num_t, num_y)
-        if self.color_arr is None or self.trace_err.shape != mat_shape:
+        if self.color_arr is None or self.color_arr.shape[:2] != mat_shape:
             self.color_arr = np.empty((num_t, num_y, 3), dtype=int)
-            self.trace_err = np.empty(mat_shape)
+            self.trace_data = {}
 
         self.color_arr[:] = self.color_unfilled
-        self.trace_err.fill(-1)
         self.t0 = tstart
         self.tstep = tstep
 
@@ -392,7 +392,7 @@ class TracePlotFrame(FrameBase):
         t_tick_step = -(-num_t // num_ticks)
         y_tick_step = -(-num_y // num_ticks)
         xtick_minor = [(val, str(val)) for val in tvec[0::t_tick_step]]
-        ytick_minor = [(val, str(val)) for val in yvec[0::y_tick_step]]
+        ytick_minor = [(val, str(val)) for val in self.yvec[0::y_tick_step]]
         plt_item.getAxis('bottom').setTicks([[], xtick_minor])
         plt_item.getAxis('left').setTicks([[], ytick_minor])
         plt_item.setLabel('left', y_label)
@@ -434,18 +434,20 @@ class TracePlotFrame(FrameBase):
     def _update_plot(self, msg):
         info = yaml.load(msg)
         tval = info['tval']
-        y_idx = info['y_idx']
+        y_idx_list = info['y_idx_list']
         val = info['val']
 
         t_idx = int(round((tval - self.t0) / self.tstep))
-        t_idx = max(0, min(t_idx, self.trace_err.shape[0]))
-        self.trace_err[t_idx, y_idx] = val
-        if val == 2:
-            self.color_arr[t_idx, y_idx, :] = self.color_cursor
-        elif val == 0:
-            self.color_arr[t_idx, y_idx, :] = 255
-        else:
-            self.color_arr[t_idx, y_idx, :] = 0
+        t_idx = max(0, min(t_idx, self.color_arr.shape[0]))
+        for y_idx in y_idx_list:
+            if val == 2:
+                self.color_arr[t_idx, y_idx, :] = self.color_cursor
+            else:
+                if val == 0:
+                    self.color_arr[t_idx, y_idx, :] = 255
+                else:
+                    self.color_arr[t_idx, y_idx, :] = 0
+                self.trace_data[(tval, y_idx)] = val
 
         self.img_item.setImage(self.color_arr, levels=(0, 255))
 
@@ -463,10 +465,11 @@ class TracePlotFrame(FrameBase):
     @QtCore.pyqtSlot()
     def _save_as(self):
         fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'Save File', self.conf_path,
-                                                         'Numpy data files (*.npy)',
+                                                         'yaml files (*.yaml)',
                                                          options=QtWidgets.QFileDialog.DontUseNativeDialog)
         if fname:
-            if not fname.endswith('.npy'):
-                fname += '.npy'
+            if not fname.endswith('.yaml'):
+                fname += '.yaml'
             self.logger.println('Saving to file: %s' % fname)
-            np.save(fname, self.trace_err)
+            with open(fname, 'w') as f:
+                yaml.dump(self.trace_data, f)
