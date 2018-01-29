@@ -35,8 +35,6 @@ class TracePlotBase(object, metaclass=abc.ABCMeta):
         parity = config['parity']
         self.str_idx_list = list(range(output_len - 1 - parity, -1, -num_des))
         self.toff_list = [idx * tper for idx in range(parity, output_len, num_des)]
-        print(self.str_idx_list)
-        print(self.toff_list)
 
     @abc.abstractmethod
     def get_delay(self):
