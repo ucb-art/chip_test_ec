@@ -440,14 +440,19 @@ class TracePlotFrame(FrameBase):
         t_idx = int(round((tval - self.t0) / self.tstep))
         t_idx = max(0, min(t_idx, self.color_arr.shape[0]))
         for y_idx in y_idx_list:
+            yval = self.yvec[y_idx]
             if val == 2:
                 self.color_arr[t_idx, y_idx, :] = self.color_cursor
             else:
                 if val == 0:
                     self.color_arr[t_idx, y_idx, :] = 255
+                    if tval not in self.trace_data:
+                        self.trace_data[tval] = [yval, yval]
+                    else:
+                        self.trace_data[tval][0] = min(self.trace_data[tval][0], yval)
+                        self.trace_data[tval][1] = max(self.trace_data[tval][1], yval)
                 else:
                     self.color_arr[t_idx, y_idx, :] = 0
-                self.trace_data[(tval, y_idx)] = val
 
         self.img_item.setImage(self.color_arr, levels=(0, 255))
 
