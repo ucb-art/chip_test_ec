@@ -315,11 +315,13 @@ class TracePlotFrame(FrameBase):
         t_min, t_max = config['t_range']
         y_min, y_max = config['y_range']
         parity = config['parity']
-        num_des = config['num_des']
+        num_des = config['params']['num_des']
         num_samp = config['num_samp']
+        data_rate = config['data_rate']
         t_start, t_stop, t_step = config['t_sweep']
         y_start, y_stop, y_step = config['y_sweep']
         num_samp_max = config.get('num_samp_max', 1000)
+        data_rate_max = config.get('data_rate_max', 1e12)
 
         ctrl_info = [[dict(name='t_start', dtype='int', vmin=t_min, vmax=t_max, vdef=t_start),
                       dict(name='t_stop', dtype='int', vmin=t_min, vmax=t_max, vdef=t_stop),
@@ -332,6 +334,7 @@ class TracePlotFrame(FrameBase):
                      [dict(name='parity', dtype='int', vmin=0, vmax=num_des - 1, vdef=parity),
                       dict(name='y_guess', dtype='int', vmin=y_min, vmax=y_max),
                       dict(name='num_samp', dtype='int', vmin=1, vmax=num_samp_max, vdef=num_samp),
+                      dict(name='data_rate', dtype='float', vmin=0, vmax=data_rate_max, decimals=3, vdef=data_rate),
                       ],
                      ]
 
@@ -360,7 +363,7 @@ class TracePlotFrame(FrameBase):
 
     def _init_data(self, plt_item, img_item, y_label, tstart, tstop, tstep,
                    ystart, ystop, ystep, num_ticks):
-        output_len = self.config['output_len']
+        output_len = self.config['params']['output_len']
         tper = int(round(np.ceil(1e12 / self.config['data_rate'])))
         tstop_plot = tstop + tper * output_len
 

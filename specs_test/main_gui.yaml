@@ -5,3 +5,10 @@ RXEye:
   class: 'EyePlotFrame'
   # GUI configuration file
   specs_fname: 'chip_test_ec/specs_test/eye_gui.yaml'
+RXTrace:
+  # GUI module name
+  module: 'chip_test_ec.gui.serdes.frames'
+  # GUI class name
+  class: 'TracePlotFrame'
+  # GUI configuration file
+  specs_fname: 'chip_test_ec/specs_test/trace_gui.yaml'
